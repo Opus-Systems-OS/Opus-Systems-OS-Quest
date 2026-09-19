@@ -57,8 +57,19 @@ pushed follow-up ("seventeen times twenty-three… what should the second
 panel show?") streamed in: "Three hundred ninety-one. The second panel
 should show your running fleet sessions and their status…"
 
-## Stage 3 — next
+## Stage 3 — done 2026-09-19 ~12:45 PDT
 
-Fleet space: a panel per running session from `/v1/sessions` (arc layout),
-an agent menu to start one (`/v1/fleet/agents`), status/cost badges,
-`requires_action` shown, a rig line from `/v1/rig`.
+`FleetSpace` polls `/v1/sessions` and `/v1/rig` every 10 s: a fleet header
+panel (rig line + session list with agent/status/cost/title) above the
+jarvis panel, and a panel per other recent session spawned from the
+`SessionPanel` prefab (saved by `Finish` with its grab components), laid
+out on an arc and then left wherever the user puts them; each binds to
+its session over its own WebSocket (history, then live). Exit on the Quest
+3: a `blueweb-ops` session started from the Mac appeared beside jarvis and
+streamed its answer; the header listed it.
+
+## Stage 4 — next
+
+Voice: Meta Voice SDK dictation (Wit.ai app token in a gitignored config)
+→ the jarvis panel; replies played from `/v1/voice/speak` (wav) in the
+Fish voice. The polled say-file goes away.

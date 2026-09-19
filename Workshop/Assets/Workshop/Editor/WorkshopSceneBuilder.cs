@@ -24,6 +24,7 @@ namespace OpusSystems.Workshop.Editor
     public static class WorkshopSceneBuilder
     {
         private const string ScenePath = "Assets/Workshop/Scenes/Workshop.unity";
+        private const string PanelPrefabPath = "Assets/Workshop/Fleet/Prefabs/SessionPanel.prefab";
 
         // Meta's BlockDataIds is internal; these are its values (core 205).
         private const string CameraRig = "e47682b9-c270-40b1-b16d-90b627a5ce1b";
@@ -75,6 +76,11 @@ namespace OpusSystems.Workshop.Editor
             if (space == null) space = new GameObject("FleetSpace").AddComponent<FleetSpace>();
             space.panel = panel;
             panel.Set("jarvis", "idle", "Pinch to grab this panel and put it where you like.");
+            // The panel — with its grab components — as a prefab, so the fleet
+            // space can spawn one per session at runtime.
+            System.IO.Directory.CreateDirectory("Assets/Workshop/Fleet/Prefabs");
+            var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(panel.gameObject, PanelPrefabPath, InteractionMode.AutomatedAction);
+            space.panelPrefab = prefab.GetComponent<SessionPanel>();
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
             Debug.Log("WorkshopSceneBuilder: finished (FleetSpace present)");
