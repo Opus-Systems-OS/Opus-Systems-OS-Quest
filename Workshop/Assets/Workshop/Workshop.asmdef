@@ -1,0 +1,14 @@
+{
+  "name": "OpusSystems.Workshop",
+  "rootNamespace": "OpusSystems.Workshop",
+  "references": ["OpusSystems.Api", "Oculus.VR", "Oculus.Interaction", "Oculus.Interaction.OVR", "Meta.XR.MRUtilityKit"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": ["Newtonsoft.Json.dll"],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

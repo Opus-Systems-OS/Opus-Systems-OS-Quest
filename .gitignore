@@ -1,0 +1,18 @@
+# Unity: only Assets/, Packages/, ProjectSettings/ are source.
+Workshop/Library/
+Workshop/Logs/
+Workshop/Temp/
+Workshop/obj/
+Workshop/Build/
+Workshop/Builds/
+Workshop/UserSettings/
+Workshop/.vs/
+Workshop/.idea/
+Workshop/*.csproj
+Workshop/*.sln
+Workshop/*.slnx
+*.apk
+*.aab
+# Secrets never live here: the headset's key is in PlayerPrefs / Keystore,
+# the Wit.ai token in a gitignored config.
+Workshop/Assets/Workshop/Config/Secrets*
