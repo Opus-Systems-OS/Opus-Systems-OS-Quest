@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Meta.XR.BuildingBlocks.Editor;
@@ -30,6 +31,10 @@ namespace OpusSystems.Workshop.Editor
         private const string HandTracking = "8b26b298-7bf4-490e-b245-a039c0184303";
         private const string RealHands = "f547fe18-d477-46ec-bdf5-7208df19cb98";
         private const string GrabbableItem = "5c5184f2-c2f5-4063-b14b-3b1264fb3c1a";
+        private const string InteractionsRig = "81f55626-5fad-45e9-a1df-184f330da7ba";
+        private const string HandInteractions = "0393ca30-f2a9-4865-a40f-f9a68d01c3a9";
+        private const string HandRayInteractor = "bc3f7b21-a55c-4cf7-b9c6-78d4341573a4";
+        private const string DistanceGrab = "3f1827c2-c682-46d8-999e-0954e37e833e";
 
         /// <summary>
         /// Entry point for -executeMethod. Returns at once and lets the
@@ -40,14 +45,41 @@ namespace OpusSystems.Workshop.Editor
         /// </summary>
         public static void Build()
         {
-            _ = Run();
+            _ = Run(BuildAsync);
         }
 
-        private static async Task Run()
+        /// <summary>
+        /// Second launch: open the saved scene and add Distance Grab to the
+        /// panel. Installing this block re-imports scripts (a domain reload),
+        /// which kills any async chain in flight — so it gets its own editor
+        /// run on top of an already-saved scene.
+        /// </summary>
+        public static void AddDistanceGrab()
+        {
+            SessionState.SetBool(PendingKey, true);
+            _ = Run(AddDistanceGrabAsync);
+        }
+
+        private const string PendingKey = "opus.workshop.distanceGrabPending";
+
+        /// <summary>
+        /// Installing Distance Grab imports scripts, which reloads the domain
+        /// and discards the running async chain. This runs after every
+        /// reload; if a distance-grab install was pending, it picks the work
+        /// back up on the saved scene (the install is idempotent).
+        /// </summary>
+        [InitializeOnLoadMethod]
+        private static void ResumeAfterReload()
+        {
+            if (!Application.isBatchMode || !SessionState.GetBool(PendingKey, false)) return;
+            EditorApplication.delayCall += () => _ = Run(AddDistanceGrabAsync);
+        }
+
+        private static async Task Run(System.Func<Task> step)
         {
             try
             {
-                await BuildAsync();
+                await step();
                 EditorApplication.Exit(0);
             }
             catch (System.Exception e)
@@ -55,6 +87,49 @@ namespace OpusSystems.Workshop.Editor
                 Debug.LogError($"WorkshopSceneBuilder failed: {e}");
                 EditorApplication.Exit(1);
             }
+        }
+
+        private static Task AddDistanceGrabAsync()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var panel = GameObject.Find("SessionPanel");
+            if (panel == null) throw new System.Exception("SessionPanel not in the scene — run Build first");
+            var already = false;
+            foreach (var c in panel.GetComponentsInChildren<Component>(true))
+                if (c != null && c.GetType().Name.Contains("DistanceHandGrabInteractable")) { already = true; break; }
+            if (!already)
+            {
+                // The Distance Grab block is a thin wrapper around the
+                // Interaction SDK's quick action (right-click → "Add Distance
+                // Grab Interaction"), which is synchronous and also puts a
+                // DistanceHandGrabInteractor on each hand if missing. The
+                // block's async installer never settles in batch mode; the
+                // wizard does. Both are internal → reflection.
+                var editorAsm = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .First(a => a.GetName().Name == "Oculus.Interaction.Editor");
+                var wizardType = editorAsm.GetType("Oculus.Interaction.Editor.QuickActions.DistanceGrabWizard");
+                var baseType = editorAsm.GetType("Oculus.Interaction.Editor.QuickActions.QuickActionsWizard");
+                var create = baseType.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                    .First(m => m.Name == "CreateWithDefaults" && m.IsGenericMethodDefinition)
+                    .MakeGenericMethod(wizardType);
+                var modeType = wizardType.GetNestedType("Mode", BindingFlags.NonPublic | BindingFlags.Public);
+                var inject = wizardType.GetMethod("InjectMode", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                var interactableToHand = System.Enum.Parse(modeType, "InteractableToHand");
+                // Action<TWizard> injecting the mode.
+                var actionType = typeof(System.Action<>).MakeGenericType(wizardType);
+                var param = System.Linq.Expressions.Expression.Parameter(wizardType, "w");
+                var call = System.Linq.Expressions.Expression.Call(param, inject, System.Linq.Expressions.Expression.Constant(interactableToHand, modeType));
+                var injectAction = System.Linq.Expressions.Expression.Lambda(actionType, call, param).Compile();
+                var created = create.Invoke(null, new object[] { panel, false, injectAction }) as System.Collections.IEnumerable;
+                var n = 0;
+                if (created != null) foreach (var _ in created) n++;
+                Debug.Log($"WorkshopSceneBuilder: DistanceGrabWizard created {n} objects");
+            }
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            SessionState.SetBool(PendingKey, false);
+            Debug.Log($"WorkshopSceneBuilder: distance grab {(already ? "already present" : "added")}, scene saved");
+            return Task.CompletedTask;
         }
 
         private static async Task BuildAsync()
@@ -70,9 +145,16 @@ namespace OpusSystems.Workshop.Editor
             await Install(Passthrough);
             await Install(HandTracking);
             await Install(RealHands);
+            // Interactors live on the hands: without these, grabbable items
+            // have nothing to be grabbed by (found on the headset, stage 1).
+            await Install(InteractionsRig);
+            await Install(HandInteractions);
+            await Install(HandRayInteractor);
 
             var panel = MakePanel();
             await Install(GrabbableItem, panel);
+            // Distance Grab (pinch from where you stand) is added by
+            // AddDistanceGrab in a second editor launch — see there.
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -96,8 +178,16 @@ namespace OpusSystems.Workshop.Editor
             if (data == null) throw new System.Exception($"block {blockId} not found in the registry");
             var m = typeof(BlockData).GetMethod("AddToProject", BindingFlags.Instance | BindingFlags.NonPublic);
             if (m == null) throw new System.Exception("BlockData.AddToProject not found — Meta SDK API changed");
-            await (Task)m.Invoke(data, new object[] { onto, null });
-            Debug.Log($"WorkshopSceneBuilder: installed {data.BlockName}");
+            try
+            {
+                await (Task)m.Invoke(data, new object[] { onto, null });
+                Debug.Log($"WorkshopSceneBuilder: installed {data.BlockName}");
+            }
+            catch (System.Exception e) when (e.GetType().Name == "InstallationCancelledException" && e.Message.Contains("singleton"))
+            {
+                // Already brought in as another block's dependency.
+                Debug.Log($"WorkshopSceneBuilder: {data.BlockName} already present, skipped");
+            }
         }
 
         /// <summary>

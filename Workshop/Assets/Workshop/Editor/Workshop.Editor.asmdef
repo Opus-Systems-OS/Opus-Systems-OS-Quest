@@ -1,8 +1,17 @@
 {
   "name": "OpusSystems.Workshop.Editor",
   "rootNamespace": "OpusSystems.Workshop.Editor",
-  "references": ["OpusSystems.Workshop", "Oculus.VR", "Oculus.VR.Editor", "Meta.XR.BuildingBlocks.Editor", "Oculus.Interaction", "Oculus.Interaction.Editor"],
-  "includePlatforms": ["Editor"],
+  "references": [
+    "OpusSystems.Workshop",
+    "Oculus.VR",
+    "Oculus.VR.Editor",
+    "Meta.XR.BuildingBlocks.Editor",
+    "Oculus.Interaction",
+    "Oculus.Interaction.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,
