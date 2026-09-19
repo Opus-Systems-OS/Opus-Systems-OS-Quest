@@ -63,6 +63,25 @@ namespace OpusSystems.Workshop.Editor
         private const string PendingKey = "opus.workshop.distanceGrabPending";
 
         /// <summary>
+        /// Idempotent finishing touches on the saved scene: our own
+        /// components that don't go through Building Blocks. Safe to rerun.
+        /// </summary>
+        public static void Finish()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var panel = GameObject.Find("SessionPanel")?.GetComponent<SessionPanel>();
+            if (panel == null) throw new System.Exception("SessionPanel not in the scene — run Build first");
+            var space = Object.FindFirstObjectByType<FleetSpace>();
+            if (space == null) space = new GameObject("FleetSpace").AddComponent<FleetSpace>();
+            space.panel = panel;
+            panel.Set("jarvis", "idle", "Pinch to grab this panel and put it where you like.");
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("WorkshopSceneBuilder: finished (FleetSpace present)");
+            EditorApplication.Exit(0);
+        }
+
+        /// <summary>
         /// Installing Distance Grab imports scripts, which reloads the domain
         /// and discards the running async chain. This runs after every
         /// reload; if a distance-grab install was pending, it picks the work
@@ -153,6 +172,8 @@ namespace OpusSystems.Workshop.Editor
 
             var panel = MakePanel();
             await Install(GrabbableItem, panel);
+            var space = new GameObject("FleetSpace").AddComponent<FleetSpace>();
+            space.panel = panel.GetComponent<SessionPanel>();
             // Distance Grab (pinch from where you stand) is added by
             // AddDistanceGrab in a second editor launch — see there.
 
@@ -235,7 +256,7 @@ namespace OpusSystems.Workshop.Editor
             panel.title = title;
             panel.status = status;
             panel.body = body;
-            panel.Set("jarvis", "idle", "Hello, sir. Pinch to grab this panel and put it where you like.\n\nStage 2 binds it to a live session.");
+            panel.Set("jarvis", "idle", "Pinch to grab this panel and put it where you like.");
             return root;
         }
 

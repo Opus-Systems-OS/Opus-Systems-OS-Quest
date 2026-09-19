@@ -39,8 +39,26 @@ Gotchas that cost the afternoon:
 - On the device, "can't interact" with a `Grabbable` meant **no
   interactors on the hands** — Grabbable Item alone is not enough.
 
-## Stage 2 — next
+## Stage 2 — done 2026-09-19 ~12:20 PDT
 
-Bind `SessionPanel` to a jarvis session via `com.opussystems.api`
-(WebSocket, deltas), keyboard input from the editor / a virtual keyboard;
-reply streams onto the panel; status and cost update; interrupt works.
+`SessionPanel` binds to a jarvis session through `com.opussystems.api`:
+`FleetSpace` creates the session on start (headset key `quest-3`,
+`sessions:*,fleet:read,voice`, delivered once via `am start -e opus.key`
+and kept in PlayerPrefs; a session-local `system_suffix` says where the
+user is), opens the WebSocket with deltas, streams the reply onto the
+panel with status (thinking/speaking/idle) and a cost badge from
+`GET /sessions/{id}`. `MainThread` marshals SDK callbacks. Until voice,
+turns are driven from the Mac by writing `/data/local/tmp/opus-say.txt`
+(apps can read it; a re-sent `am start` intent is *not* seen — Unity's
+activity keeps its original intent).
+
+Exit, on the Quest 3: `sesn_01GHjBQ8hAbaM9x5ibSMDmCM` — greeting, then a
+pushed follow-up ("seventeen times twenty-three… what should the second
+panel show?") streamed in: "Three hundred ninety-one. The second panel
+should show your running fleet sessions and their status…"
+
+## Stage 3 — next
+
+Fleet space: a panel per running session from `/v1/sessions` (arc layout),
+an agent menu to start one (`/v1/fleet/agents`), status/cost badges,
+`requires_action` shown, a rig line from `/v1/rig`.
