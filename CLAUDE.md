@@ -26,7 +26,8 @@ Quest 3 ──(osk_ key: sessions:*, fleet:read, voice)──> api.opustower.dev
 - **Main thread only.** SDK callbacks arrive on background threads; queue
   them and apply in `Update()` (`MainThread.cs`).
 - **Nothing secret in the repo.** The key lives in PlayerPrefs (prototype)
-  or the Keystore; the Wit.ai token in a gitignored `Secrets*.asset`.
+  or the Keystore; the Wit.ai token is handed over once (`-e opus.wit`) and
+  kept in PlayerPrefs — never in an asset or the repo.
 - Editor 6000.6.2f1 with Android Build Support. Meta XR Core/Interaction/
   MRUK 205 from `npm.developer.oculus.com`. Meta's XR Simulator package
   (81) predates Core 205 and is not used; the dev loop is build → `adb

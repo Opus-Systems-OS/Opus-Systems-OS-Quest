@@ -68,8 +68,47 @@ its session over its own WebSocket (history, then live). Exit on the Quest
 3: a `blueweb-ops` session started from the Mac appeared beside jarvis and
 streamed its answer; the header listed it.
 
-## Stage 4 — next
+## Stage 4 — done 2026-09-19 (on device)
 
-Voice: Meta Voice SDK dictation (Wit.ai app token in a gitignored config)
-→ the jarvis panel; replies played from `/v1/voice/speak` (wav) in the
-Fish voice. The polled say-file goes away.
+Voice both ways, on the jarvis panel.
+
+- **Out:** `FleetVoicePlayer` splits the streamed reply into sentences and
+  fetches each from `POST /v1/voice/speak` (`format: wav`, `latency: low`)
+  — the Fish voice the API holds, the same one the Mac and Tauri apps use.
+  Clips are queued and played from the panel's position (spatial).
+- **In:** Meta Voice SDK 85 dictation (`JarvisTalk`). Push-to-talk: pinch
+  and hold with the **left** hand, talk, release; the partial transcript
+  shows on the panel as "You: …", the final one is sent as the next user
+  message. The right hand stays free for grabbing.
+- The Wit.ai client token never enters the repo or an asset: it is handed
+  to the app once via an intent extra and kept in PlayerPrefs, and the
+  `WitConfiguration` is built at runtime from it.
+
+```sh
+adb shell am force-stop dev.opustower.workshop
+adb shell am start -n dev.opustower.workshop/com.unity3d.player.UnityPlayerGameActivity \
+  -e opus.wit "$(cat ~/.config/opus-systems/wit-token)"
+```
+
+The polled say-file (`/data/local/tmp/opus-say.txt`) stays as a dev
+fallback for typed input from the Mac.
+
+Verified on device: "I talked, I heard Jarvis."
+
+Ergonomics fixed the same day, from use: the room is laid out once from
+the first tracked head pose (jarvis straight ahead, header above, other
+panels on a wider, lower ring) instead of on world-forward around wherever
+you stood at the first refresh; the left hand's interactors are off so the
+talk pinch cannot distance-grab a panel into your face; and a panel is
+spawned only for a session that is actually working (running / waiting on a
+tool, max 3, never another jarvis) — idle and finished sessions are lines
+in the fleet header, not screens.
+
+Noted: `com.meta.xr.sdk.voice` 85 bundles Dictation; the separate
+`…voice.dictation` package (64) conflicts with it and is not installed.
+Microphone permission is requested at first launch.
+
+## Stage 5 — next
+
+Headset ergonomics: spatial anchors so panels stay where you left them
+across launches, distance/size defaults, passthrough tint.

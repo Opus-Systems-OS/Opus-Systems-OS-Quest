@@ -47,6 +47,13 @@
       },
       "url": "https://npm.developer.oculus.com"
     },
+    "com.meta.xr.sdk.voice": {
+      "version": "85.0.1",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://npm.developer.oculus.com"
+    },
     "com.opussystems.api": {
       "version": "https://github.com/Opus-Systems-OS/Opus-Systems-OS-API.git?path=/sdk/upm/com.opussystems.api",
       "depth": 0,

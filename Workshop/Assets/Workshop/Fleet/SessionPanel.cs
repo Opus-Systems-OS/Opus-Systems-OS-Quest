@@ -22,6 +22,8 @@ namespace OpusSystems.Workshop
 
         public string SessionId { get; private set; } = "";
         public bool Busy { get; private set; }
+        /// <summary>When set, streamed replies are spoken as they arrive.</summary>
+        public FleetVoicePlayer voice;
 
         private OpusClient _api;
         private SessionSocket _ws;
@@ -81,6 +83,7 @@ namespace OpusSystems.Workshop
 
         public async Task InterruptAsync()
         {
+            voice?.Stop();
             if (_ws == null) return;
             try { await _ws.InterruptAsync(); } catch (Exception e) { MainThread.Run(() => Fail(e)); }
         }
@@ -92,6 +95,7 @@ namespace OpusSystems.Workshop
             {
                 if (_partial.Length == 0) SetStatus("speaking…");
                 _partial.Append(fragment);
+                voice?.Feed(fragment);
                 Render();
             });
             _ws.OnEvent += ev => MainThread.Run(() => OnEvent(ev));
@@ -112,6 +116,7 @@ namespace OpusSystems.Workshop
                     break;
                 case "agent.message":
                     _partial.Clear();
+                    voice?.Flush();
                     Line(title ? title.text : "agent", Events.Text(ev));
                     break;
                 case "agent.custom_tool_use":
@@ -151,6 +156,12 @@ namespace OpusSystems.Workshop
 
         private string _cost = "";
         private string _status = "idle";
+        private string _draft = "";
+        private bool _listening;
+
+        /// <summary>Live dictation, shown as "You: …" until sent.</summary>
+        public void ShowDraft(string text) { _draft = text; Render(); }
+        public void SetListening(bool on) { _listening = on; Render(); }
 
         private void SetStatus(string s) { _status = s; Render(); }
 
@@ -171,10 +182,12 @@ namespace OpusSystems.Workshop
 
         private void Render()
         {
-            if (status) status.text = string.IsNullOrEmpty(_cost) ? _status : $"{_status}  ·  {_cost}";
+            var st = _listening ? "listening…" : _status;
+            if (status) status.text = string.IsNullOrEmpty(_cost) ? st : $"{st}  ·  {_cost}";
             if (!body) return;
             var shown = _transcript.ToString();
             if (_partial.Length > 0) shown += (title ? title.text : "agent") + ": " + _partial + " ▍";
+            if (!string.IsNullOrEmpty(_draft)) shown += "You: " + _draft + " …";
             body.text = shown;
         }
 

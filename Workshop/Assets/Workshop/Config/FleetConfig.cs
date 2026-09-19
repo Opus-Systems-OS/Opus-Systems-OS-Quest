@@ -31,5 +31,12 @@ namespace OpusSystems.Workshop
         }
 
         public static bool HasKey => ApiKey.StartsWith("osk_");
+
+        private const string WitPref = "opus.wit.token";
+        public static string WitToken
+        {
+            get => Environment.GetEnvironmentVariable("OPUS_WIT") ?? PlayerPrefs.GetString(WitPref, "");
+            set { PlayerPrefs.SetString(WitPref, value); PlayerPrefs.Save(); }
+        }
     }
 }

@@ -16,3 +16,8 @@ Workshop/*.slnx
 # Secrets never live here: the headset's key is in PlayerPrefs / Keystore,
 # the Wit.ai token in a gitignored config.
 Workshop/Assets/Workshop/Config/Secrets*
+# Build/test scratch the editor regenerates.
+Workshop/.utmp/
+Workshop/Assets/StreamingAssets/
+Workshop/Assets/StreamingAssets.meta
+Workshop/Assets/Resources/PerformanceTestRun*

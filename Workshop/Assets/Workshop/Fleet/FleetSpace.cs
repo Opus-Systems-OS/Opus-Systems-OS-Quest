@@ -25,7 +25,7 @@ namespace OpusSystems.Workshop
         [Tooltip("Spawned for every other session.")]
         public SessionPanel panelPrefab;
         [TextArea] public string greeting = "I'm in the workshop with the headset on. Say hello in one short sentence.";
-        public int maxSessionPanels = 5;
+        public int maxSessionPanels = 3;
         public float arcRadius = 1.3f;
         public float arcDegrees = 34f;
         public float refreshSeconds = 10f;
@@ -40,6 +40,8 @@ namespace OpusSystems.Workshop
 
         private const string SayFile = "/data/local/tmp/opus-say.txt";
         private float _nextPoll;
+        private Pose _origin = new Pose(new Vector3(0, 1.4f, 0), Quaternion.identity);
+        private bool _laidOut;
 
         private void Start()
         {
@@ -54,6 +56,20 @@ namespace OpusSystems.Workshop
                 return;
             }
             _api = new OpusClient(FleetConfig.BaseUrl, FleetConfig.ApiKey);
+            // Jarvis's voice, spatialised at the jarvis panel.
+            var voiceGo = new GameObject("JarvisVoice");
+            voiceGo.transform.SetParent(panel.transform, false);
+            var voice = voiceGo.AddComponent<FleetVoicePlayer>();
+            voice.baseUrl = FleetConfig.BaseUrl;
+            voice.apiKey = FleetConfig.ApiKey;
+            panel.voice = voice;
+            // Your voice in: Wit token delivered once (am start -e opus.wit …),
+            // kept in PlayerPrefs like the API key.
+            var wit = IntentExtra("opus.wit");
+            if (!string.IsNullOrEmpty(wit)) FleetConfig.WitToken = wit;
+            var talk = new GameObject("JarvisTalk").AddComponent<JarvisTalk>();
+            talk.panel = panel;
+            talk.witClientToken = FleetConfig.WitToken;
             var say = IntentExtra("opus.say");
             _ = panel.StartAsync(_api, "jarvis", string.IsNullOrEmpty(say) ? greeting : say,
                 "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. Plain sentences, no markdown, one to three sentences.");
@@ -68,6 +84,7 @@ namespace OpusSystems.Workshop
         private void Update()
         {
             if (_api == null) return;
+            TryLayout();
             PollSayFile();
             if (Time.unscaledTime >= _nextRefresh)
             {
@@ -102,7 +119,7 @@ namespace OpusSystems.Workshop
                         lines.AppendLine($"{agent,-15} {status,-8} {spent,4}¢   {Short(s.Value<string>("title"))}");
                     }
                     _header.Set("fleet", $"{sessions.Data.Count} sessions", lines.ToString());
-                    SyncPanels(sessions.Data);
+                    if (_laidOut) SyncPanels(sessions.Data);
                 });
             }
             catch (System.Exception e)
@@ -111,12 +128,19 @@ namespace OpusSystems.Workshop
             }
         }
 
-        /// <summary>One panel per recent session other than jarvis's own, up to a limit.</summary>
+        /// <summary>
+        /// A panel for each session that is actually working — running, or
+        /// stopped waiting on a tool result — up to a small limit. Idle and
+        /// finished sessions are lines in the fleet header, not screens; and
+        /// other jarvis sessions (past conversations, the Mac app's) never
+        /// get one — the jarvis panel in front of you is the only jarvis.
+        /// </summary>
         private void SyncPanels(IEnumerable<JObject> sessions)
         {
             var wanted = sessions
                 .Where(s => s.Value<string>("id") != panel.SessionId)
-                .Where(s => s["metadata"]?.Value<string>("iron_fleet_agent") != null)
+                .Where(s => s["metadata"]?.Value<string>("iron_fleet_agent") is string agent && agent != "jarvis")
+                .Where(s => s.Value<string>("status") == "running" || _panels.ContainsKey(s.Value<string>("id")))
                 .Take(maxSessionPanels)
                 .ToList();
             var keep = new HashSet<string>(wanted.Select(s => s.Value<string>("id")));
@@ -150,21 +174,49 @@ namespace OpusSystems.Workshop
         }
 
         /// <summary>
-        /// Positions on an arc around where the user stood at launch: slot 0
-        /// is straight ahead (the jarvis panel's place); odd slots go right,
-        /// even go left, alternating outward. `up` raises the header above.
+        /// Positions on an arc around where the user stood when the room
+        /// was laid out: slot 0 is straight ahead (the jarvis panel's place);
+        /// odd slots go right, even go left, alternating outward on a wider,
+        /// slightly lower ring so they frame the jarvis panel instead of
+        /// crowding it. `up` raises the header above slot 0.
         /// </summary>
         private Pose Slot(int slot, bool up)
         {
-            var origin = panel ? panel.transform.position - new Vector3(0, 0, arcRadius) : _head.position;
-            origin = new Vector3(_head.position.x, panel ? panel.transform.position.y : 1.4f, _head.position.z);
+            var origin = new Vector3(_origin.position.x, _origin.position.y - 0.15f, _origin.position.z);
             var side = slot == 0 ? 0 : (slot % 2 == 1 ? 1 : -1);
             var ring = (slot + 1) / 2;
             var angle = side * ring * arcDegrees;
-            var dir = Quaternion.Euler(0, angle, 0) * Vector3.forward;
-            var pos = origin + dir * arcRadius + (up ? Vector3.up * 0.5f : Vector3.zero);
+            var radius = slot == 0 ? arcRadius : arcRadius + 0.4f;
+            var dir = _origin.rotation * Quaternion.Euler(0, angle, 0) * Vector3.forward;
+            var pos = origin + dir * radius + Vector3.up * (up ? 0.45f : (slot == 0 ? 0f : -0.1f));
             var rot = Quaternion.LookRotation(pos - origin, Vector3.up);
             return new Pose(pos, rot);
+        }
+
+        /// <summary>
+        /// Where you were and which way you faced when tracking first
+        /// reported a real head pose. Everything is placed relative to it,
+        /// once — panels do not follow you around the room.
+        /// </summary>
+        private bool TryLayout()
+        {
+            if (_laidOut) return true;
+            if (_head == transform || _head.position.y < 0.3f) return false; // no tracking yet
+            var fwd = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
+            if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
+            _origin = new Pose(_head.position, Quaternion.LookRotation(fwd.normalized, Vector3.up));
+            _laidOut = true;
+            if (panel)
+            {
+                var p = Slot(0, up: false);
+                panel.transform.SetPositionAndRotation(p.position, p.rotation);
+            }
+            if (_header)
+            {
+                var h = Slot(0, up: true);
+                _header.transform.SetPositionAndRotation(h.position, h.rotation);
+            }
+            return true;
         }
 
         private static string Short(string s) => string.IsNullOrEmpty(s) ? "" : (s.Length > 28 ? s.Substring(0, 27) + "…" : s);
