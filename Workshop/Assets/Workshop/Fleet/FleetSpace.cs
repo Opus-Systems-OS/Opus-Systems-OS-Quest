@@ -210,13 +210,26 @@ namespace OpusSystems.Workshop
             {
                 var p = Slot(0, up: false);
                 panel.transform.SetPositionAndRotation(p.position, p.rotation);
+                _ = Anchor(panel, "jarvis");
             }
             if (_header)
             {
                 var h = Slot(0, up: true);
                 _header.transform.SetPositionAndRotation(h.position, h.rotation);
+                _ = Anchor(_header, "fleet");
             }
             return true;
+        }
+
+        /// <summary>
+        /// The two fixed panels remember their place in the room: restore the
+        /// saved anchor, or pin the default spot so next launch finds it.
+        /// </summary>
+        private static async Task Anchor(SessionPanel p, string key)
+        {
+            var a = p.gameObject.AddComponent<PanelAnchor>();
+            a.key = key;
+            if (!await a.RestoreAsync()) await a.PinAsync();
         }
 
         private static string Short(string s) => string.IsNullOrEmpty(s) ? "" : (s.Length > 28 ? s.Substring(0, 27) + "…" : s);

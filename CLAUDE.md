@@ -49,6 +49,9 @@ docs/status.md                     resume here
 
 ## Build order (hard stage boundaries)
 
+Stages 1–5 are done on the device (2026-09-19); progress and the gotchas
+each one hit are in `docs/status.md`.
+
 1. **Room + one panel** — passthrough, hands, one grabbable panel; APK on
    the headset. Exit: grab and place the panel in your real room.
 2. **Live panel** — the panel bound to a jarvis session (WebSocket deltas),

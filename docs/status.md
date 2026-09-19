@@ -108,7 +108,28 @@ Noted: `com.meta.xr.sdk.voice` 85 bundles Dictation; the separate
 `…voice.dictation` package (64) conflicts with it and is not installed.
 Microphone permission is requested at first launch.
 
-## Stage 5 — next
+## Stage 5 — done 2026-09-19 (on device)
 
-Headset ergonomics: spatial anchors so panels stay where you left them
-across launches, distance/size defaults, passthrough tint.
+Panels stay where you put them. `PanelAnchor` on the jarvis panel and the
+fleet header: at rest each is pinned to the room with an `OVRSpatialAnchor`;
+a grab drops the anchor so the hand can move it, and the release creates,
+saves and remembers a new one (UUID per key in PlayerPrefs, the previous
+anchor erased). On launch the saved anchor is loaded and localised; if the
+room is not recognised, or nothing was saved, the default layout applies
+and is pinned. Session panels (transient) are not anchored.
+
+Verified: both anchors `restored` on relaunch after a move.
+
+Noted: right after a resume the runtime refuses anchor creation and
+discovery comes back empty with `Success`; both are retried for up to 8 s.
+`OVRSpatialAnchor`'s own logging is compiled out of release builds, so
+`PanelAnchor` logs `pinned` / `restored` / `not found yet` itself. The
+Grabbable Item building block leaves a demo cube at the origin; `Finish()`
+removes it.
+
+## Stage 6 — next
+
+3D-print preview panel: a GLB (glTFast) or STL turned in the hand, from a
+URL or a file pushed to the headset. Device tools (room, "look at this")
+declared per session. Reuse the last jarvis session on launch instead of
+starting a new one each time.

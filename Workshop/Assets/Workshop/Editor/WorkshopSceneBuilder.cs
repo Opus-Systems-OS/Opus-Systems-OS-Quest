@@ -76,6 +76,10 @@ namespace OpusSystems.Workshop.Editor
             if (space == null) space = new GameObject("FleetSpace").AddComponent<FleetSpace>();
             space.panel = panel;
             panel.Set("jarvis", "idle", "Pinch to grab this panel and put it where you like.");
+            // The Grabbable Item block leaves its demo cube at the origin
+            // once its components have been copied onto the panel.
+            foreach (var stray in scene.GetRootGameObjects().Where(g => g.name == "[BuildingBlock] Grabbable Item" && g.GetComponent<SessionPanel>() == null).ToList())
+                Object.DestroyImmediate(stray);
             // The panel — with its grab components — as a prefab, so the fleet
             // space can spawn one per session at runtime.
             System.IO.Directory.CreateDirectory("Assets/Workshop/Fleet/Prefabs");
