@@ -81,6 +81,7 @@ namespace OpusSystems.Workshop
                 {
                     _state = "connecting…";
                     client = new TcpClient { NoDelay = true, ReceiveBufferSize = 1 << 16 };
+                    client.Client.SetSocketOption(System.Net.Sockets.SocketOptionLevel.Socket, System.Net.Sockets.SocketOptionName.KeepAlive, true);
                     if (!client.ConnectAsync(host, port).Wait(4000)) throw new TimeoutException("connect timed out");
                     using var stream = client.GetStream();
                     var header = ReadLine(stream);
@@ -102,8 +103,9 @@ namespace OpusSystems.Workshop
                 {
                     if (_stop) break;
                     _state = "no Mac: " + Short(e);
+                    Debug.Log("MacSpeaker: " + _state);
                     lock (_lock) { _count = 0; _read = _write = 0; _primed = false; }
-                    Thread.Sleep(3000);
+                    Thread.Sleep(1000);
                 }
                 finally { client?.Dispose(); }
             }
