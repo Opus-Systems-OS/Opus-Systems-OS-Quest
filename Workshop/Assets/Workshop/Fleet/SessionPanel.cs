@@ -116,7 +116,12 @@ namespace OpusSystems.Workshop
 
         public async Task SendAsync(string text)
         {
-            if (_ws == null || string.IsNullOrWhiteSpace(text)) return;
+            if (string.IsNullOrWhiteSpace(text)) return;
+            if (_ws == null && _api != null && !string.IsNullOrEmpty(SessionId))
+            {
+                try { await AttachAsync(history: false); } catch (Exception e) { MainThread.Run(() => Fail(e)); return; }
+            }
+            if (_ws == null) return;
             Busy = true;
             MainThread.Run(() => { Line("You", text); SetStatus("thinking…"); });
             try { await _ws.SendAsync(text); }
@@ -130,6 +135,43 @@ namespace OpusSystems.Workshop
             try { await _ws.InterruptAsync(); } catch (Exception e) { MainThread.Run(() => Fail(e)); }
         }
 
+        private bool _closing;
+        /// <summary>Raised when the session itself is over (terminated, expired) and cannot be rejoined.</summary>
+        public Action<SessionPanel> OnSessionEnded;
+
+        /// <summary>
+        /// The socket drops now and then — the headset dozes, an upstream
+        /// stream times out. Rejoin the same session while it lives; if it
+        /// is gone, say so and let the owner start a new one.
+        /// </summary>
+        private async Task ReconnectAsync()
+        {
+            for (var attempt = 1; attempt <= 30 && !_closing && _ws == null; attempt++)
+            {
+                await Task.Delay(Math.Min(2000 * attempt, 15000));
+                if (_closing || _ws != null) return;
+                try
+                {
+                    var s = await _api.GetSessionAsync(SessionId);
+                    var status = s.Value<string>("status") ?? "";
+                    if (status == "terminated" || status == "archived" || status == "error")
+                    {
+                        MainThread.Run(() => { SetStatus($"session {status}"); OnSessionEnded?.Invoke(this); });
+                        return;
+                    }
+                    await AttachAsync(history: false);
+                    MainThread.Run(() => SetStatus("idle"));
+                    return;
+                }
+                catch (Exception e)
+                {
+                    MainThread.Run(() => SetStatus($"reconnecting… ({Short(e.Message)})"));
+                }
+            }
+        }
+
+        private static string Short(string m) => m.Length > 30 ? m.Substring(0, 29) + "…" : m;
+
         private async Task AttachAsync(bool history)
         {
             _ws = await _api.OpenSessionSocketAsync(SessionId, history: history, deltas: true);
@@ -142,7 +184,14 @@ namespace OpusSystems.Workshop
             });
             _ws.OnEvent += ev => MainThread.Run(() => OnEvent(ev));
             _ws.OnError += (t, m) => MainThread.Run(() => { SetStatus($"error: {t}"); Line("!", m); Busy = false; });
-            _ws.OnClosed += reason => MainThread.Run(() => { SetStatus($"closed ({reason})"); _ws = null; Busy = false; });
+            _ws.OnClosed += reason => MainThread.Run(() =>
+            {
+                _ws = null;
+                Busy = false;
+                if (_closing) { SetStatus("closed"); return; }
+                SetStatus($"reconnecting ({reason})…");
+                _ = ReconnectAsync();
+            });
             MainThread.Run(() => SetStatus(history ? "idle" : "thinking…"));
             _ = RefreshCostAsync();
         }
@@ -278,6 +327,7 @@ namespace OpusSystems.Workshop
 
         private void OnDestroy()
         {
+            _closing = true;
             _ws?.Dispose();
         }
     }

@@ -82,6 +82,8 @@ namespace OpusSystems.Workshop
             var say = IntentExtra("opus.say");
             panel.ToolHandler = RunToolAsync;
             panel.RemoteTools = MacTools;
+            // If the conversation is gone for good, start a fresh one in place.
+            panel.OnSessionEnded = _ => { PlayerPrefs.DeleteKey(SessionPref); var restart = BootJarvisAsync(null); };
             _ = BootJarvisAsync(say);
             _lastSay = say ?? "";
             try { if (System.IO.File.Exists(SayFile)) _lastSay = System.IO.File.ReadAllText(SayFile).Trim(); } catch { }
