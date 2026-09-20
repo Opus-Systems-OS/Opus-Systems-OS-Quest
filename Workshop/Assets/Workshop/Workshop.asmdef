@@ -10,7 +10,8 @@
     "VoiceSDK.Runtime",
     "VoiceSDK.Dictation.Runtime",
     "Meta.WitAi",
-    "Meta.Wit.Dictation"
+    "Meta.Wit.Dictation",
+    "glTFast"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

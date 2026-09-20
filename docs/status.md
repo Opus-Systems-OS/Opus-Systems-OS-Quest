@@ -127,9 +127,42 @@ discovery comes back empty with `Success`; both are retried for up to 8 s.
 Grabbable Item building block leaves a demo cube at the origin; `Finish()`
 removes it.
 
-## Stage 6 — next
+## Stage 6 — done 2026-09-19 (on device)
 
-3D-print preview panel: a GLB (glTFast) or STL turned in the hand, from a
-URL or a file pushed to the headset. Device tools (room, "look at this")
-declared per session. Reuse the last jarvis session on launch instead of
-starting a new one each time.
+3D-print preview, and one continuing conversation.
+
+- **Tools on the jarvis session** (session-local, declared at create,
+  answered over the WebSocket): `list_models` — the `.stl/.glb/.gltf` files
+  in the app's external files dir (`adb push x.stl
+  /sdcard/Android/data/dev.opustower.workshop/files/models/`); `show_model
+  {name | url}` — loose name match or an http(s) URL. "What models do I
+  have?" → "bring up the duck" works by voice.
+- **`PrintPreview`**: a half-size SessionPanel as the stand (grab it to move
+  or turn the print), the model on a world-scale-1 mount at its top edge,
+  fitted to 22 cm, turning slowly; the stand shows w×d×h in mm and the
+  triangle count, which the tool result also carries back to Jarvis.
+  `StlLoader` parses binary and ASCII STL (mm → m, Z-up → Y-up, 32-bit
+  indices); GLB/glTF through glTFast 6.20, meshes only, every material
+  replaced by `Resources/PrintMaterial` (a print is one colour, and
+  glTFast's shaders are not in the build).
+- **Session reuse**: the jarvis session id and a tool-set version are kept
+  in PlayerPrefs; on launch the session is picked up if it is idle, under
+  30 ¢ and was created with the current tools ("I'm back in the workshop"
+  as the opener), else a new one starts. Verified: the duck conversation
+  survived a relaunch (`sesn_014bsD…`, 8 ¢ → 18 ¢, no new session).
+
+Verified: "i saw both, they are blue (perfect)" — torus.stl (generated,
+54 mm) and Khronos Duck.glb.
+
+Noted: glTFast instantiates a file's camera nodes as real Cameras — a
+second Camera in a VR scene draws the room twice ("two ducks"); instantiate
+with `ComponentType.Mesh` only. Concurrent loads are serialised (latest
+wins). Tool results need `Events.Id(ev)` (the custom_tool_use event id).
+
+## Next
+
+Nothing staged. Ideas, in rough order of value: more room tools (start a
+fleet session by voice with an agent menu; "look at this" with the
+passthrough camera when Meta exposes it); the Duck-style dimensions check
+against a real print bed; a "print this" hand-off to the slicer on the
+Mac; multi-user later.

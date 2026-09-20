@@ -71,8 +71,8 @@ namespace OpusSystems.Workshop
             talk.panel = panel;
             talk.witClientToken = FleetConfig.WitToken;
             var say = IntentExtra("opus.say");
-            _ = panel.StartAsync(_api, "jarvis", string.IsNullOrEmpty(say) ? greeting : say,
-                "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. Plain sentences, no markdown, one to three sentences.");
+            panel.ToolHandler = RunToolAsync;
+            _ = BootJarvisAsync(say);
             _lastSay = say ?? "";
             try { if (System.IO.File.Exists(SayFile)) _lastSay = System.IO.File.ReadAllText(SayFile).Trim(); } catch { }
 
@@ -126,6 +126,101 @@ namespace OpusSystems.Workshop
             {
                 MainThread.Run(() => _header?.Set("fleet", "error", e.Message));
             }
+        }
+
+        // ---- jarvis: one continuing conversation, with this room's tools -----
+
+        private const string SessionPref = "opus.jarvis.session";
+        private const string ToolsPref = "opus.jarvis.tools";
+        /// <summary>Bump when the tool set changes: tools are fixed at session create.</summary>
+        private const string ToolsVersion = "print-1";
+        private const int ReuseCostLimitCents = 30;
+
+        private static List<CustomTool> JarvisTools => new List<CustomTool>
+        {
+            new CustomTool
+            {
+                Name = "list_models",
+                Description = "List the 3D-print files (STL/GLB) stored on this headset, by file name.",
+            },
+            new CustomTool
+            {
+                Name = "show_model",
+                Description = "Show a 3D print on the stand in the room, turning slowly, scaled to fit the hand. Give a file name from list_models (loose matches are fine) or an http(s) URL to an .stl/.glb file. Returns the model's size in millimetres and triangle count.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""name"":{""type"":""string"",""description"":""file name on the headset""},""url"":{""type"":""string"",""description"":""http(s) URL of an .stl/.glb""}}}"),
+            },
+        };
+
+        /// <summary>
+        /// Pick up the last conversation if it is still usable — same tool
+        /// set, idle, not much spent — otherwise start a new one. Either way
+        /// Jarvis says something, so you know he's there.
+        /// </summary>
+        private async Task BootJarvisAsync(string say)
+        {
+            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model. Plain sentences, no markdown, one to three sentences.";
+            var saved = PlayerPrefs.GetString(SessionPref, "");
+            if (!string.IsNullOrEmpty(saved) && PlayerPrefs.GetString(ToolsPref, "") == ToolsVersion && string.IsNullOrEmpty(say))
+            {
+                try
+                {
+                    var s = await _api.GetSessionAsync(saved);
+                    var status = s.Value<string>("status") ?? "";
+                    int.TryParse(s["usage"]?["list_cost"]?.Value<string>("amount") ?? "0", out var spent);
+                    if (status == "idle" && spent < ReuseCostLimitCents)
+                    {
+                        await panel.BindAsync(_api, saved, "jarvis");
+                        await panel.SendAsync("I'm back in the workshop with the headset on. One short sentence.");
+                        return;
+                    }
+                    Debug.Log($"jarvis session {saved} not reused: {status}, {spent}¢");
+                }
+                catch (System.Exception e) { Debug.Log($"jarvis session {saved} not reused: {e.Message}"); }
+            }
+            await panel.StartAsync(_api, "jarvis", string.IsNullOrEmpty(say) ? greeting : say, suffix, JarvisTools);
+            if (!string.IsNullOrEmpty(panel.SessionId))
+            {
+                PlayerPrefs.SetString(SessionPref, panel.SessionId);
+                PlayerPrefs.SetString(ToolsPref, ToolsVersion);
+                PlayerPrefs.Save();
+            }
+        }
+
+        private PrintPreview _print;
+
+        private async Task<string> RunToolAsync(string name, JObject input)
+        {
+            switch (name)
+            {
+                case "list_models":
+                    var files = ModelLibrary.List();
+                    return files.Length == 0
+                        ? $"No models on the headset. Push .stl/.glb files to {ModelLibrary.Folder}."
+                        : string.Join("\n", files);
+                case "show_model":
+                    var url = input.Value<string>("url");
+                    var source = !string.IsNullOrWhiteSpace(url) ? url : ModelLibrary.Resolve(input.Value<string>("name") ?? "");
+                    if (source == null) throw new System.Exception($"no model matching '{input.Value<string>("name")}'; list_models has the names");
+                    if (!_print)
+                    {
+                        var stand = Spawn("print", PrintSlot());
+                        stand.transform.localScale *= 0.5f;
+                        _print = stand.gameObject.AddComponent<PrintPreview>();
+                        _print.stand = stand;
+                    }
+                    await _print.LoadAsync(source);
+                    return "Showing " + _print.Summary;
+                default:
+                    throw new System.Exception($"unknown tool {name}");
+            }
+        }
+
+        /// <summary>The print stand: forward-left of the jarvis panel, lower, where a hand reaches.</summary>
+        private Pose PrintSlot()
+        {
+            var pos = _origin.position + _origin.rotation * new Vector3(-0.55f, -0.45f, 1.0f);
+            var look = Quaternion.LookRotation(Vector3.ProjectOnPlane(pos - _origin.position, Vector3.up), Vector3.up);
+            return new Pose(pos, look);
         }
 
         /// <summary>

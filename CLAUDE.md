@@ -49,7 +49,7 @@ docs/status.md                     resume here
 
 ## Build order (hard stage boundaries)
 
-Stages 1–5 are done on the device (2026-09-19); progress and the gotchas
+Stages 1–6 are done on the device (2026-09-19); progress and the gotchas
 each one hit are in `docs/status.md`.
 
 1. **Room + one panel** — passthrough, hands, one grabbable panel; APK on
@@ -62,7 +62,8 @@ each one hit are in `docs/status.md`.
 4. **Voice** — Meta Voice SDK dictation → orb; replies in the Fish voice via
    `/v1/voice/speak`. Exit: talk to the orb, hear Jarvis.
 5. **Anchors + polish** — panels remember their places; ergonomics.
-6. **Later** — 3D-print preview panel (GLB/STL), more device tools.
+6. **Print preview** — STL/GLB on a stand via jarvis tools (`list_models`,
+   `show_model`); the jarvis session continues across launches.
 
 ## Commands
 

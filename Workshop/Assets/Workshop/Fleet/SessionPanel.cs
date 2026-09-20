@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -38,8 +39,15 @@ namespace OpusSystems.Workshop
             if (body) body.text = bodyText;
         }
 
+        /// <summary>
+        /// Runs a session-local custom tool the agent asked for and returns
+        /// the result text; throw to answer with an error result. Set it
+        /// before <see cref="StartAsync"/> / <see cref="BindAsync"/>.
+        /// </summary>
+        public Func<string, JObject, Task<string>> ToolHandler;
+
         /// <summary>Start a conversation with an agent; the first message opens the session.</summary>
-        public async Task StartAsync(OpusClient api, string agentSlug, string firstMessage, string systemSuffix)
+        public async Task StartAsync(OpusClient api, string agentSlug, string firstMessage, string systemSuffix, List<CustomTool> tools = null)
         {
             _api = api;
             Busy = true;
@@ -51,6 +59,7 @@ namespace OpusSystems.Workshop
                     AgentSlug = agentSlug,
                     Task = firstMessage,
                     SystemSuffix = systemSuffix,
+                    Tools = tools,
                 });
                 SessionId = created.SessionId;
                 Line("You", firstMessage);
@@ -105,6 +114,21 @@ namespace OpusSystems.Workshop
             _ = RefreshCostAsync();
         }
 
+        private async Task RunToolAsync(string id, string name, JObject input)
+        {
+            string result;
+            var isError = false;
+            try
+            {
+                if (ToolHandler == null) throw new InvalidOperationException($"this client has no tool named {name}");
+                result = await ToolHandler(name, input);
+            }
+            catch (Exception e) { result = e.Message; isError = true; }
+            Line("tool", $"{name} → {result}");
+            try { if (_ws != null) await _ws.SendToolResultAsync(id, result, isError); }
+            catch (Exception e) { MainThread.Run(() => Fail(e)); }
+        }
+
         private void OnEvent(JObject ev)
         {
             switch (Events.Type(ev))
@@ -121,6 +145,7 @@ namespace OpusSystems.Workshop
                     break;
                 case "agent.custom_tool_use":
                     SetStatus($"tool: {Events.ToolName(ev)}");
+                    _ = RunToolAsync(Events.Id(ev), Events.ToolName(ev) ?? "", Events.ToolInput(ev));
                     break;
                 case "session.status_running":
                     SetStatus("thinking…");

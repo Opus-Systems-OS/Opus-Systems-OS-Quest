@@ -80,6 +80,14 @@ namespace OpusSystems.Workshop.Editor
             // once its components have been copied onto the panel.
             foreach (var stray in scene.GetRootGameObjects().Where(g => g.name == "[BuildingBlock] Grabbable Item" && g.GetComponent<SessionPanel>() == null).ToList())
                 Object.DestroyImmediate(stray);
+            // The print preview's material, in Resources so its shader ships.
+            System.IO.Directory.CreateDirectory("Assets/Workshop/Print/Resources");
+            if (AssetDatabase.LoadAssetAtPath<Material>("Assets/Workshop/Print/Resources/PrintMaterial.mat") == null)
+            {
+                var mat = new Material(Shader.Find("Standard")) { color = new Color(0.36f, 0.78f, 0.96f) };
+                mat.SetFloat("_Glossiness", 0.35f);
+                AssetDatabase.CreateAsset(mat, "Assets/Workshop/Print/Resources/PrintMaterial.mat");
+            }
             // The panel — with its grab components — as a prefab, so the fleet
             // space can spawn one per session at runtime.
             System.IO.Directory.CreateDirectory("Assets/Workshop/Fleet/Prefabs");

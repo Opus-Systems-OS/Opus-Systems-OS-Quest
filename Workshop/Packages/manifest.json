@@ -46,7 +46,8 @@
     "com.unity.test-framework": "1.5.1",
     "com.unity.xr.openxr": "1.18.0",
     "com.unity.xr.management": "4.6.1",
-    "com.meta.xr.sdk.voice": "85.0.1"
+    "com.meta.xr.sdk.voice": "85.0.1",
+    "com.unity.cloud.gltfast": "6.20.0"
   },
   "scopedRegistries": [
     {
