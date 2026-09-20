@@ -49,8 +49,9 @@ docs/status.md                     resume here
 
 ## Build order (hard stage boundaries)
 
-Stages 1–6 are done on the device (2026-09-19), and the 2026-09-20 upgrade
-(music with a player, web search, calculator, the Opus launcher) too;
+Stages 1–6 are done on the device (2026-09-19); the 2026-09-20 upgrade
+(music with a player, web search, calculator, the Opus launcher) and the
+standalone work (window management, pairing, signed release build) too;
 progress and the gotchas each one hit are in `docs/status.md`.
 
 1. **Room + one panel** — passthrough, hands, one grabbable panel; APK on
@@ -75,3 +76,8 @@ cd Workshop
 "$U" -batchmode -nographics -projectPath "$PWD" -buildTarget Android -executeMethod OpusSystems.Workshop.Editor.WorkshopBuild.Apk -logFile /tmp/apk.log
 adb install -r Builds/Workshop.apk
 ```
+
+Release signing: source `~/.config/opus-systems/workshop-keystore.env`
+before the APK step (README "Release builds"). The keystore and its
+passwords never enter the repo; `WorkshopBuild` clears the password fields
+from ProjectSettings after every build.

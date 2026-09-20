@@ -95,6 +95,15 @@ namespace OpusSystems.Workshop
             RenderTime();
         }
 
+        private void SetPlayerVisible(bool on)
+        {
+            if (_prev) _prev.gameObject.SetActive(on);
+            if (_play) _play.gameObject.SetActive(on);
+            if (_next) _next.gameObject.SetActive(on);
+            if (_progress) _progress.transform.parent.gameObject.SetActive(on);
+            if (_time) _time.gameObject.SetActive(on);
+        }
+
         private void RenderTime()
         {
             if (!_time) return;
@@ -120,10 +129,16 @@ namespace OpusSystems.Workshop
                 {
                     req.timeout = 3;
                     yield return req.SendWebRequest();
-                    if (req.result == UnityWebRequest.Result.Success) Apply(req.downloadHandler.text);
-                    else Show(null, "no Mac", "", "", "");
+                    if (req.result == UnityWebRequest.Result.Success) { Apply(req.downloadHandler.text); SetPlayerVisible(true); }
+                    else
+                    {
+                        _duration = 0;
+                        Show(null, "Mac not reachable", "open the Jarvis app on the Mac", "", "");
+                        _panel.Set("music", "offline", "");
+                        SetPlayerVisible(false);
+                    }
                 }
-                yield return new WaitForSecondsRealtime(1f);
+                yield return new WaitForSecondsRealtime(_state == "" ? 3f : 1f);
             }
         }
 

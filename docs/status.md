@@ -255,9 +255,25 @@ Noted: the C# SDK refused an empty key in its constructor, so the first
 build died silently on "Getting a code…" — the SDK now allows an empty key
 until paired, and the setup panel reports any failure on screen.
 
+## Release build (2026-09-20) — done
+
+`WorkshopBuild.Apk` signs with the release keystore named by
+`OPUS_KEYSTORE`/`_PASS`/`_ALIAS`/`OPUS_KEY_PASS` (from
+`~/.config/opus-systems/workshop-keystore.env`, never in the repo;
+passwords cleared from ProjectSettings after each build), sets the
+version from the commit count (`1.<n>`), and stamps the generated icon
+(`Assets/Workshop/Icon.png`, a ring on dark). `apksigner` shows
+`CN=Opus Workshop`. Switching from debug to release signing needed one
+uninstall (and one re-pair); builds install over each other from here.
+With the Mac's Jarvis app quit, the music panel reads "Mac not reachable"
+with the player hidden and everything else works. Verified: "it worked".
+
 ## Next
 
-A signed release build with an icon, Mac-off behaviour. The workshop is the desk now: Jarvis, music with a real
+Nothing staged. The app stands on its own now: install, pair from the
+Mac, use. Ideas: a "start a session" agent menu on the fleet header;
+direct hand grab of title bars (needs HandGrabInteractor on the hands);
+Tailscale on the Mac for a stable music address; App Lab, if ever. The workshop is the desk now: Jarvis, music with a real
 player, a calculator, the whole stack's status, and prints on a stand.
 Ideas: a "start a session" agent menu on the fleet header; the
 passthrough camera when Meta exposes it; a fine-grained GitHub token in
