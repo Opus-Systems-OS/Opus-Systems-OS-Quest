@@ -200,10 +200,17 @@ allowed*, which silently refuses every UnityWebRequest to a plain-HTTP LAN
 address (the raw-TCP audio worked, the JSON and artwork didn't);
 `WorkshopBuild` sets `InsecureHttpOption.AlwaysAllowed`.
 
+- **Calculator — done.** `Calc` (shunting-yard over `decimal`: + − × ÷ ^,
+  parentheses, unary minus, postfix %, √; spoken forms like "15 percent
+  of 80" normalised) and `CalculatorPanel` (display, eight-line tape,
+  5×5 keypad of ray-pinch buttons) on a panel to the left, anchored
+  (`calc`). Jarvis's `calculate` tool lands on the same tape, and the
+  system suffix tells him to use it for any arithmetic. Verified on
+  device by keypad and by voice.
+
 ## Next
 
-Calculator (ray-pinch keypad + `calculate` tool), then the Opus launcher
-and service panels on `/v1/ops`. Ideas, in rough order of value: more room tools (start a
+The Opus launcher and service panels on `/v1/ops`. Ideas, in rough order of value: more room tools (start a
 fleet session by voice with an agent menu; "look at this" with the
 passthrough camera when Meta exposes it); the Duck-style dimensions check
 against a real print bed; a "print this" hand-off to the slicer on the

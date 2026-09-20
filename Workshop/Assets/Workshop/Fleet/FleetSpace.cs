@@ -138,7 +138,7 @@ namespace OpusSystems.Workshop
         private const string SessionPref = "opus.jarvis.session";
         private const string ToolsPref = "opus.jarvis.tools";
         /// <summary>Bump when the tool set changes: tools are fixed at session create.</summary>
-        private const string ToolsVersion = "music-1";
+        private const string ToolsVersion = "calc-1";
         private const int ReuseCostLimitCents = 30;
 
         /// <summary>Tools the Mac answers (its Music app), declared here so Jarvis has them in the room.</summary>
@@ -157,6 +157,12 @@ namespace OpusSystems.Workshop
                 Name = "music_control",
                 Description = "Control the Music app on the Mac: pause, resume, skip forward or back, report what's playing, set the volume, or toggle shuffle.",
                 InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""action"":{""type"":""string"",""enum"":[""pause"",""resume"",""next"",""previous"",""now_playing"",""set_volume"",""shuffle_on"",""shuffle_off""]},""volume"":{""type"":""integer"",""minimum"":0,""maximum"":100}},""required"":[""action""],""additionalProperties"":false}"),
+            },
+            new CustomTool
+            {
+                Name = "calculate",
+                Description = "Work out an arithmetic expression exactly and show it on the calculator panel in the room. Supports + - * / ^, parentheses, sqrt(), and a postfix percent (17% of 340 → \"17% * 340\"). Returns \"expression = result\".",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""expression"":{""type"":""string""}},""required"":[""expression""]}"),
             },
             new CustomTool
             {
@@ -189,7 +195,7 @@ namespace OpusSystems.Workshop
         /// </summary>
         private async Task BootJarvisAsync(string say)
         {
-            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
+            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, work sums out on the calculator panel with calculate (use it for any arithmetic rather than doing it in your head), and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
             var saved = PlayerPrefs.GetString(SessionPref, "");
             if (!string.IsNullOrEmpty(saved) && PlayerPrefs.GetString(ToolsPref, "") == ToolsVersion && string.IsNullOrEmpty(say))
             {
@@ -228,6 +234,9 @@ namespace OpusSystems.Workshop
                     return files.Length == 0
                         ? $"No models on the headset. Push .stl/.glb files to {ModelLibrary.Folder}."
                         : string.Join("\n", files);
+                case "calculate":
+                    EnsureCalculator();
+                    return _calculator.Evaluate(input.Value<string>("expression") ?? "");
                 case "show_model":
                     var url = input.Value<string>("url");
                     var source = !string.IsNullOrWhiteSpace(url) ? url : ModelLibrary.Resolve(input.Value<string>("name") ?? "");
@@ -345,7 +354,24 @@ namespace OpusSystems.Workshop
                 _ = Anchor(_header, "fleet");
             }
             SpawnSpeaker();
+            EnsureCalculator();
             return true;
+        }
+
+        // ---- the calculator, a desk tool that is always there ----------------
+
+        private CalculatorPanel _calculator;
+
+        private void EnsureCalculator()
+        {
+            if (_calculator) return;
+            var pose = new Pose(
+                _origin.position + _origin.rotation * new Vector3(-0.95f, -0.15f, 1.05f),
+                Quaternion.LookRotation(_origin.rotation * new Vector3(-0.95f, 0, 1.05f), Vector3.up));
+            var stand = Spawn("calculator", pose);
+            stand.transform.localScale *= 0.8f;
+            _calculator = CalculatorPanel.Attach(stand);
+            _ = Anchor(stand, "calc");
         }
 
         // ---- the Mac's music, from a speaker you can move ------------------
