@@ -159,9 +159,31 @@ second Camera in a VR scene draws the room twice ("two ducks"); instantiate
 with `ComponentType.Mesh` only. Concurrent loads are serialised (latest
 wins). Tool results need `Events.Id(ev)` (the custom_tool_use event id).
 
+## Workshop upgrade (2026-09-20)
+
+Plan: Apple Music, web search, a calculator, and a launcher for every layer
+of the stack (Iron-Fleet `docs/centralization-plan.md` "Resume here" has
+the cross-repo view).
+
+- **Web search** — already on the `jarvis` agent (`agent_toolset_20260401`
+  includes it; proved with `usage.web_search_requests: 1`); the system
+  suffix now tells Jarvis to use it for current facts.
+- **Apple Music from the headset — done.** The session declares the four
+  music tools (`play_music`, `music_control`, `list_playlists`,
+  `queue_music`) and is created with `client: "quest"`; the Mac Jarvis
+  app's `WorkshopRelay` finds that session by metadata and answers them
+  through the Music app. `SessionPanel.RemoteTools`: those calls are not
+  run here — the panel shows "waiting on the Mac…" and answers with an
+  error after 25 s if no `user.custom_tool_result` arrives. Verified:
+  playlists listed, a playlist played, skip. Audio comes out of the Mac.
+- Ops (`/v1/ops`) and the `ops:read` key are live on the API side; the
+  hub panel is next.
+
 ## Next
 
-Nothing staged. Ideas, in rough order of value: more room tools (start a
+Calculator (ray-pinch keypad + `calculate` tool), the Opus launcher and
+service panels on `/v1/ops`. Wanted: the Mac's music audio in the headset
+speakers (stream the Music app's output over Tailscale). Ideas, in rough order of value: more room tools (start a
 fleet session by voice with an agent menu; "look at this" with the
 passthrough camera when Meta exposes it); the Duck-style dimensions check
 against a real print bed; a "print this" hand-off to the slicer on the

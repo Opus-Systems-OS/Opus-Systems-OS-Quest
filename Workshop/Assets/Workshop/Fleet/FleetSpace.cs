@@ -72,6 +72,7 @@ namespace OpusSystems.Workshop
             talk.witClientToken = FleetConfig.WitToken;
             var say = IntentExtra("opus.say");
             panel.ToolHandler = RunToolAsync;
+            panel.RemoteTools = MacTools;
             _ = BootJarvisAsync(say);
             _lastSay = say ?? "";
             try { if (System.IO.File.Exists(SayFile)) _lastSay = System.IO.File.ReadAllText(SayFile).Trim(); } catch { }
@@ -133,11 +134,37 @@ namespace OpusSystems.Workshop
         private const string SessionPref = "opus.jarvis.session";
         private const string ToolsPref = "opus.jarvis.tools";
         /// <summary>Bump when the tool set changes: tools are fixed at session create.</summary>
-        private const string ToolsVersion = "print-1";
+        private const string ToolsVersion = "music-1";
         private const int ReuseCostLimitCents = 30;
+
+        /// <summary>Tools the Mac answers (its Music app), declared here so Jarvis has them in the room.</summary>
+        public static readonly HashSet<string> MacTools = new HashSet<string> { "play_music", "music_control", "list_playlists", "queue_music" };
 
         private static List<CustomTool> JarvisTools => new List<CustomTool>
         {
+            new CustomTool
+            {
+                Name = "play_music",
+                Description = "Play something from the user's Apple Music library on the Mac in the room: a song title, an artist or album (plays everything matching), or one of the user's playlists by name. Matching is case-insensitive and partial. Reports what started playing, or that nothing matched.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""title"":{""type"":""string"",""description"":""Song title, for one specific song""},""artist"":{""type"":""string""},""album"":{""type"":""string""},""playlist"":{""type"":""string"",""description"":""One of the user's playlist names""},""shuffle"":{""type"":""boolean""}},""additionalProperties"":false}"),
+            },
+            new CustomTool
+            {
+                Name = "music_control",
+                Description = "Control the Music app on the Mac: pause, resume, skip forward or back, report what's playing, set the volume, or toggle shuffle.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""action"":{""type"":""string"",""enum"":[""pause"",""resume"",""next"",""previous"",""now_playing"",""set_volume"",""shuffle_on"",""shuffle_off""]},""volume"":{""type"":""integer"",""minimum"":0,""maximum"":100}},""required"":[""action""],""additionalProperties"":false}"),
+            },
+            new CustomTool
+            {
+                Name = "list_playlists",
+                Description = "List the user's Apple Music playlists by name with their track counts.",
+            },
+            new CustomTool
+            {
+                Name = "queue_music",
+                Description = "Add music to the end of the queue without interrupting what's playing: a song title, an artist, an album, or a playlist name.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""title"":{""type"":""string""},""artist"":{""type"":""string""},""album"":{""type"":""string""},""playlist"":{""type"":""string""}},""additionalProperties"":false}"),
+            },
             new CustomTool
             {
                 Name = "list_models",
@@ -158,7 +185,7 @@ namespace OpusSystems.Workshop
         /// </summary>
         private async Task BootJarvisAsync(string say)
         {
-            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model. Plain sentences, no markdown, one to three sentences.";
+            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
             var saved = PlayerPrefs.GetString(SessionPref, "");
             if (!string.IsNullOrEmpty(saved) && PlayerPrefs.GetString(ToolsPref, "") == ToolsVersion && string.IsNullOrEmpty(say))
             {

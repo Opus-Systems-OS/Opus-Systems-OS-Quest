@@ -46,6 +46,17 @@ namespace OpusSystems.Workshop
         /// </summary>
         public Func<string, JObject, Task<string>> ToolHandler;
 
+        /// <summary>
+        /// Tools declared on this session that another device answers (the
+        /// Mac runs the Music app). Calls to these are not run here; if no
+        /// result arrives within <see cref="RemoteTimeoutSeconds"/> the
+        /// panel answers with an error so the session never hangs.
+        /// </summary>
+        public HashSet<string> RemoteTools = new HashSet<string>();
+        public float RemoteTimeoutSeconds = 25f;
+        public string RemoteOwner = "the Mac";
+        private readonly HashSet<string> _answeredRemote = new HashSet<string>();
+
         /// <summary>Start a conversation with an agent; the first message opens the session.</summary>
         public async Task StartAsync(OpusClient api, string agentSlug, string firstMessage, string systemSuffix, List<CustomTool> tools = null)
         {
@@ -60,6 +71,7 @@ namespace OpusSystems.Workshop
                     Task = firstMessage,
                     SystemSuffix = systemSuffix,
                     Tools = tools,
+                    Client = "quest",
                 });
                 SessionId = created.SessionId;
                 Line("You", firstMessage);
@@ -116,6 +128,11 @@ namespace OpusSystems.Workshop
 
         private async Task RunToolAsync(string id, string name, JObject input)
         {
+            if (RemoteTools.Contains(name))
+            {
+                _ = WaitForRemoteAsync(id, name);
+                return;
+            }
             string result;
             var isError = false;
             try
@@ -129,10 +146,32 @@ namespace OpusSystems.Workshop
             catch (Exception e) { MainThread.Run(() => Fail(e)); }
         }
 
+        /// <summary>A remote tool call: show who we're waiting on; give up after the timeout.</summary>
+        private async Task WaitForRemoteAsync(string id, string name)
+        {
+            SetStatus($"{name} · waiting on {RemoteOwner}…");
+            var deadline = Time.unscaledTime + RemoteTimeoutSeconds;
+            while (Time.unscaledTime < deadline)
+            {
+                await Task.Delay(500);
+                if (_answeredRemote.Contains(id) || _ws == null) return;
+            }
+            if (_answeredRemote.Contains(id)) return;
+            _answeredRemote.Add(id);
+            Line("tool", $"{name} → {RemoteOwner} didn't answer");
+            try { await _ws.SendToolResultAsync(id, $"{RemoteOwner} isn't available right now — is the Jarvis app open there?", isError: true); }
+            catch (Exception e) { MainThread.Run(() => Fail(e)); }
+        }
+
         private void OnEvent(JObject ev)
         {
             switch (Events.Type(ev))
             {
+                case "user.custom_tool_result":
+                    // Another device answered one of this session's tools.
+                    var answeredId = ev.Value<string>("custom_tool_use_id") ?? "";
+                    if (_answeredRemote.Add(answeredId)) Line("tool", $"answered by {RemoteOwner}");
+                    break;
                 case "user.message":
                     // Already echoed locally for our own sends; history replays come here.
                     if (_transcript.Length == 0 || !_transcript.ToString().EndsWith(Events.Text(ev) + "\n"))
