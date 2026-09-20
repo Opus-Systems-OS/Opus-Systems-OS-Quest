@@ -70,6 +70,9 @@ namespace OpusSystems.Workshop
             var talk = new GameObject("JarvisTalk").AddComponent<JarvisTalk>();
             talk.panel = panel;
             talk.witClientToken = FleetConfig.WitToken;
+            // The Mac's music in the room: address handed over once (am start -e opus.speaker host:port).
+            var speaker = IntentExtra("opus.speaker");
+            if (!string.IsNullOrEmpty(speaker)) FleetConfig.Speaker = speaker;
             var say = IntentExtra("opus.say");
             panel.ToolHandler = RunToolAsync;
             panel.RemoteTools = MacTools;
@@ -86,6 +89,7 @@ namespace OpusSystems.Workshop
         {
             if (_api == null) return;
             TryLayout();
+            UpdateSpeakerUi();
             PollSayFile();
             if (Time.unscaledTime >= _nextRefresh)
             {
@@ -340,7 +344,42 @@ namespace OpusSystems.Workshop
                 _header.transform.SetPositionAndRotation(h.position, h.rotation);
                 _ = Anchor(_header, "fleet");
             }
+            SpawnSpeaker();
             return true;
+        }
+
+        // ---- the Mac's music, from a speaker you can move ------------------
+
+        private SessionPanel _speakerPanel;
+        private MacSpeaker _speaker;
+
+        private void SpawnSpeaker()
+        {
+            var addr = FleetConfig.Speaker;
+            if (string.IsNullOrEmpty(addr) || _speakerPanel) return;
+            var parts = addr.Split(':');
+            var pose = new Pose(
+                _origin.position + _origin.rotation * new Vector3(0.75f, -0.35f, 1.1f),
+                Quaternion.LookRotation(_origin.rotation * new Vector3(0.75f, 0, 1.1f), Vector3.up));
+            _speakerPanel = Spawn("music", pose);
+            _speakerPanel.transform.localScale *= 0.5f;
+            _speakerPanel.Set("music", "connecting…", "The Mac's Music app, heard here.");
+            _speaker = _speakerPanel.gameObject.AddComponent<MacSpeaker>();
+            _speaker.host = parts[0];
+            if (parts.Length > 1 && int.TryParse(parts[1], out var port)) _speaker.port = port;
+            _ = Anchor(_speakerPanel, "speaker");
+        }
+
+        private float _nextSpeakerUi;
+
+        private void UpdateSpeakerUi()
+        {
+            if (!_speaker || Time.unscaledTime < _nextSpeakerUi) return;
+            _nextSpeakerUi = Time.unscaledTime + 0.2f;
+            var bars = _speaker.Connected ? new string('▮', Mathf.RoundToInt(_speaker.Level * 12)) : "";
+            _speakerPanel.Set("music", _speaker.State, _speaker.Connected
+                ? (bars.Length > 0 ? bars : "· · ·")
+                : "The Mac's Music app, heard here.\nOpen the Jarvis app on the Mac.");
         }
 
         /// <summary>

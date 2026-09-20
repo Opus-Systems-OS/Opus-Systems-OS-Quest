@@ -32,6 +32,14 @@ namespace OpusSystems.Workshop
 
         public static bool HasKey => ApiKey.StartsWith("osk_");
 
+        private const string SpeakerPref = "opus.speaker";
+        /// <summary>`host:port` of the Mac's music stream (the Jarvis app), or empty.</summary>
+        public static string Speaker
+        {
+            get => Environment.GetEnvironmentVariable("OPUS_SPEAKER") ?? PlayerPrefs.GetString(SpeakerPref, "");
+            set { PlayerPrefs.SetString(SpeakerPref, value); PlayerPrefs.Save(); }
+        }
+
         private const string WitPref = "opus.wit.token";
         public static string WitToken
         {
