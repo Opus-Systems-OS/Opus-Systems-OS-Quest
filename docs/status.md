@@ -179,11 +179,31 @@ the cross-repo view).
 - Ops (`/v1/ops`) and the `ops:read` key are live on the API side; the
   hub panel is next.
 
+- **The Mac's music in the room — done.** `MacSpeaker` streams the Jarvis
+  app's PCM (`OPUSPCM1 48000 2` then 16-bit LE stereo over TCP 48100) into
+  a spatialised speaker panel; the Mac mutes its own output while the
+  headset listens. Address handed over once (`-e opus.speaker host:port`).
+- **Buttons in the room — done.** `WorkshopSceneBuilder.AddRayCanvas`
+  runs the Interaction SDK's Ray Canvas wizard on the panel's Canvas child
+  (`ISDK_RayCanvasInteraction`: PointableCanvas + RayInteractable + clipped
+  plane) and adds an EventSystem with `PointableCanvasModule`; every
+  spawned panel inherits it through the prefab. Unity UI `Button`s work
+  with the right hand's ray + pinch; the distance grab did not fight it.
+- **Media player — done.** `MediaPanel` on the speaker panel: artwork,
+  title / artist / album / year · genre · track, progress bar with
+  elapsed / total / remaining (interpolated between 1 s polls), previous /
+  play-pause / next. Reads the Mac's `http://host:48101/now`, `/artwork`,
+  `/control` directly — no fleet turn. Verified: "perfect!"
+
+Noted: Unity's Android "Allow downloads over HTTP" defaults to *not
+allowed*, which silently refuses every UnityWebRequest to a plain-HTTP LAN
+address (the raw-TCP audio worked, the JSON and artwork didn't);
+`WorkshopBuild` sets `InsecureHttpOption.AlwaysAllowed`.
+
 ## Next
 
-Calculator (ray-pinch keypad + `calculate` tool), the Opus launcher and
-service panels on `/v1/ops`. Wanted: the Mac's music audio in the headset
-speakers (stream the Music app's output over Tailscale). Ideas, in rough order of value: more room tools (start a
+Calculator (ray-pinch keypad + `calculate` tool), then the Opus launcher
+and service panels on `/v1/ops`. Ideas, in rough order of value: more room tools (start a
 fleet session by voice with an agent menu; "look at this" with the
 passthrough camera when Meta exposes it); the Duck-style dimensions check
 against a real print bed; a "print this" hand-off to the slicer on the

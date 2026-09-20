@@ -19,6 +19,9 @@ namespace OpusSystems.Workshop.Editor
             PlayerSettings.companyName = "Opus Systems";
             PlayerSettings.SetApplicationIdentifier(NamedBuildTarget.Android, "dev.opustower.workshop");
             PlayerSettings.SetScriptingBackend(NamedBuildTarget.Android, ScriptingImplementation.IL2CPP);
+            // The Mac's now-playing and artwork endpoints are plain HTTP on
+            // the LAN; without this every UnityWebRequest to them is refused.
+            PlayerSettings.insecureHttpOption = InsecureHttpOption.AlwaysAllowed;
             PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel32;
             EditorUserBuildSettings.buildAppBundle = false;

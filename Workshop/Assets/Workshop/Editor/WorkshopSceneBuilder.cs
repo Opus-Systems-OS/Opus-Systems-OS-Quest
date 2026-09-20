@@ -62,6 +62,60 @@ namespace OpusSystems.Workshop.Editor
         }
 
         private const string PendingKey = "opus.workshop.distanceGrabPending";
+        private const string RayCanvasPendingKey = "opus.workshop.rayCanvasPending";
+
+        /// <summary>
+        /// Buttons you can point at: the Interaction SDK's "Add Ray
+        /// Interaction to Canvas" on the panel (a PointableCanvas +
+        /// RayInteractable child that every spawned panel inherits through
+        /// the prefab) and an EventSystem driven by PointableCanvasModule.
+        /// Separate launch, resumable, like AddDistanceGrab; run Finish after
+        /// so the prefab picks it up.
+        /// </summary>
+        public static void AddRayCanvas()
+        {
+            SessionState.SetBool(RayCanvasPendingKey, true);
+            _ = Run(AddRayCanvasAsync);
+        }
+
+        private static Task AddRayCanvasAsync()
+        {
+            var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            var panel = GameObject.Find("SessionPanel");
+            if (panel == null) throw new System.Exception("SessionPanel not in the scene — run Build first");
+            var already = panel.GetComponentInChildren<Oculus.Interaction.PointableCanvas>(true) != null;
+            if (!already)
+            {
+                var editorAsm = System.AppDomain.CurrentDomain.GetAssemblies()
+                    .First(a => a.GetName().Name == "Oculus.Interaction.Editor");
+                var wizardType = editorAsm.GetType("Oculus.Interaction.Editor.QuickActions.RayCanvasWizard");
+                var baseType = editorAsm.GetType("Oculus.Interaction.Editor.QuickActions.QuickActionsWizard");
+                var create = baseType.GetMethods(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
+                    .First(m => m.Name == "CreateWithDefaults" && m.IsGenericMethodDefinition)
+                    .MakeGenericMethod(wizardType);
+                // The wizard wants the object that carries the Canvas — the
+                // panel's child, not the grabbable root.
+                var canvas = panel.GetComponentInChildren<Canvas>(true)?.gameObject
+                             ?? throw new System.Exception("SessionPanel has no Canvas child");
+                var created = create.Invoke(null, new object[] { canvas, true, null }) as System.Collections.IEnumerable;
+                var n = 0;
+                if (created != null) foreach (var _ in created) n++;
+                Debug.Log($"WorkshopSceneBuilder: RayCanvasWizard created {n} objects");
+            }
+            if (Object.FindAnyObjectByType<Oculus.Interaction.PointableCanvasModule>() == null)
+            {
+                var es = Object.FindFirstObjectByType<UnityEngine.EventSystems.EventSystem>()?.gameObject
+                         ?? new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem));
+                es.AddComponent<Oculus.Interaction.PointableCanvasModule>();
+                foreach (var legacy in es.GetComponents<UnityEngine.EventSystems.StandaloneInputModule>())
+                    Object.DestroyImmediate(legacy);
+            }
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            SessionState.SetBool(RayCanvasPendingKey, false);
+            Debug.Log($"WorkshopSceneBuilder: ray canvas {(already ? "already present" : "added")}, scene saved");
+            return Task.CompletedTask;
+        }
 
         /// <summary>
         /// Idempotent finishing touches on the saved scene: our own
@@ -108,8 +162,11 @@ namespace OpusSystems.Workshop.Editor
         [InitializeOnLoadMethod]
         private static void ResumeAfterReload()
         {
-            if (!Application.isBatchMode || !SessionState.GetBool(PendingKey, false)) return;
-            EditorApplication.delayCall += () => _ = Run(AddDistanceGrabAsync);
+            if (!Application.isBatchMode) return;
+            if (SessionState.GetBool(PendingKey, false))
+                EditorApplication.delayCall += () => _ = Run(AddDistanceGrabAsync);
+            else if (SessionState.GetBool(RayCanvasPendingKey, false))
+                EditorApplication.delayCall += () => _ = Run(AddRayCanvasAsync);
         }
 
         private static async Task Run(System.Func<Task> step)

@@ -362,11 +362,13 @@ namespace OpusSystems.Workshop
                 _origin.position + _origin.rotation * new Vector3(0.75f, -0.35f, 1.1f),
                 Quaternion.LookRotation(_origin.rotation * new Vector3(0.75f, 0, 1.1f), Vector3.up));
             _speakerPanel = Spawn("music", pose);
-            _speakerPanel.transform.localScale *= 0.5f;
+            _speakerPanel.transform.localScale *= 0.7f;
             _speakerPanel.Set("music", "connecting…", "The Mac's Music app, heard here.");
             _speaker = _speakerPanel.gameObject.AddComponent<MacSpeaker>();
             _speaker.host = parts[0];
             if (parts.Length > 1 && int.TryParse(parts[1], out var port)) _speaker.port = port;
+            // The media player on the same panel: artwork, track, transport.
+            MediaPanel.Attach(_speakerPanel, parts[0]);
             _ = Anchor(_speakerPanel, "speaker");
         }
 
@@ -376,10 +378,7 @@ namespace OpusSystems.Workshop
         {
             if (!_speaker || Time.unscaledTime < _nextSpeakerUi) return;
             _nextSpeakerUi = Time.unscaledTime + 0.2f;
-            var bars = _speaker.Connected ? new string('▮', Mathf.RoundToInt(_speaker.Level * 12)) : "";
-            _speakerPanel.Set("music", _speaker.State, _speaker.Connected
-                ? (bars.Length > 0 ? bars : "· · ·")
-                : "The Mac's Music app, heard here.\nOpen the Jarvis app on the Mac.");
+            if (!_speaker.Connected && _speakerPanel.status) _speakerPanel.status.text = _speaker.State;
         }
 
         /// <summary>
