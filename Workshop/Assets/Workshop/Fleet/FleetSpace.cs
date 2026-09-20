@@ -52,9 +52,15 @@ namespace OpusSystems.Workshop
             if (!string.IsNullOrEmpty(key)) FleetConfig.ApiKey = key;
             if (!FleetConfig.HasKey)
             {
-                panel?.Set("jarvis", "no key", "No API key on this headset.\n\nadb shell am start … -e opus.key osk_…");
+                // First launch: pair from the Mac, then boot for real.
+                SetupPanel.Begin(panel, Boot);
                 return;
             }
+            Boot();
+        }
+
+        private void Boot()
+        {
             _api = new OpusClient(FleetConfig.BaseUrl, FleetConfig.ApiKey);
             // Jarvis's voice, spatialised at the jarvis panel.
             var voiceGo = new GameObject("JarvisVoice");
@@ -431,6 +437,13 @@ namespace OpusSystems.Workshop
             return true;
         }
 
+        /// <summary>Drop the key and extras; the next launch pairs again.</summary>
+        private void ForgetHeadset()
+        {
+            FleetConfig.Clear();
+            if (_hub) _hub.GetComponent<SessionPanel>().Set("Opus Systems", "forgotten", "This headset's key is gone.\nQuit the app and open it again to pair.");
+        }
+
         /// <summary>Everything back to its default spot, anchors forgotten, transient panels gone.</summary>
         public void ResetRoom()
         {
@@ -461,6 +474,7 @@ namespace OpusSystems.Workshop
             _hub.OnOpen = id => _ = OpenOpsAsync(id);
             _hub.OnDesk = key => ShowCore(key);
             _hub.OnReset = ResetRoom;
+            _hub.OnForget = ForgetHeadset;
         }
 
         private static readonly string[] OpsIds = { "github", "uptimerobot", "droplet", "docker", "tailscale", "cloudflare" };

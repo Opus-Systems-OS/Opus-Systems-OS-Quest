@@ -239,10 +239,25 @@ Noted: the Interaction SDK's pointer `Pose` on a ray is the hit point, not
 the ray, hence reading the interactor; the hands carry no direct
 `HandGrabInteractor`, so movement is ray-only (works at any distance).
 
+## Pairing (2026-09-20) — done
+
+No adb, nothing typed on the headset. Without a key, `SetupPanel` takes
+over the Jarvis panel: `POST /v1/pair` (keyless) → a six-digit code in
+96-unit type, polled every 2 s with the private token. On the Mac, Jarvis
+→ Settings → Workshop → Approve headset mints the key with the fixed
+device profile, revokes the previous `quest-3`, and sends along the Wit
+token (from `~/.config/opus-systems/wit-token`) and the Mac's LAN
+address for music; the headset saves all three and boots. The hub's
+Unpair button forgets them (`FleetConfig.Clear`). Verified from a wiped
+install (`pm clear`): "it worked".
+
+Noted: the C# SDK refused an empty key in its constructor, so the first
+build died silently on "Getting a code…" — the SDK now allows an empty key
+until paired, and the setup panel reports any failure on screen.
+
 ## Next
 
-Standalone: pairing from the Mac (no adb), a signed release build with an
-icon, Mac-off behaviour. The workshop is the desk now: Jarvis, music with a real
+A signed release build with an icon, Mac-off behaviour. The workshop is the desk now: Jarvis, music with a real
 player, a calculator, the whole stack's status, and prints on a stand.
 Ideas: a "start a session" agent menu on the fleet header; the
 passthrough camera when Meta exposes it; a fine-grained GitHub token in

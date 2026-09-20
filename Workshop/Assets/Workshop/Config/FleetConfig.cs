@@ -32,6 +32,15 @@ namespace OpusSystems.Workshop
 
         public static bool HasKey => ApiKey.StartsWith("osk_");
 
+        /// <summary>Forget everything pairing gave this headset (key, Wit token, speaker).</summary>
+        public static void Clear()
+        {
+            PlayerPrefs.DeleteKey(KeyPref);
+            PlayerPrefs.DeleteKey(WitPref);
+            PlayerPrefs.DeleteKey(SpeakerPref);
+            PlayerPrefs.Save();
+        }
+
         private const string SpeakerPref = "opus.speaker";
         /// <summary>`host:port` of the Mac's music stream (the Jarvis app), or empty.</summary>
         public static string Speaker

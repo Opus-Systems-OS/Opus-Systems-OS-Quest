@@ -20,6 +20,7 @@ namespace OpusSystems.Workshop
         /// <summary>The Desk row: bring a hidden core panel back, by key (jarvis, fleet, calc, speaker).</summary>
         public Action<string> OnDesk;
         public Action OnReset;
+        public Action OnForget;
 
         private SessionPanel _panel;
         private OpusClient _api;
@@ -53,10 +54,11 @@ namespace OpusSystems.Workshop
             var x = 20f;
             foreach (var (label, key) in new[] { ("Jarvis", "jarvis"), ("Fleet", "fleet"), ("Calc", "calc"), ("Music", "speaker") })
             {
-                Ui.Button(canvas, _font, label, x, y, 100, 54, new Color(0.16f, 0.26f, 0.36f, 0.95f), () => OnDesk?.Invoke(key));
-                x += 108;
+                Ui.Button(canvas, _font, label, x, y, 92, 54, new Color(0.16f, 0.26f, 0.36f, 0.95f), () => OnDesk?.Invoke(key));
+                x += 98;
             }
-            Ui.Button(canvas, _font, "Reset room", x + 8, y, 120, 54, new Color(0.45f, 0.3f, 0.2f, 0.95f), () => OnReset?.Invoke());
+            Ui.Button(canvas, _font, "Reset", x + 8, y, 64, 54, new Color(0.45f, 0.3f, 0.2f, 0.95f), () => OnReset?.Invoke());
+            Ui.Button(canvas, _font, "Unpair", x + 80, y, 72, 54, new Color(0.45f, 0.2f, 0.2f, 0.95f), () => OnForget?.Invoke());
         }
 
         private void Update()
