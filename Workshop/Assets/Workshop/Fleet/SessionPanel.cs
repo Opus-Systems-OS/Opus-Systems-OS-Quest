@@ -21,6 +21,13 @@ namespace OpusSystems.Workshop
         public Text body;
         public Text status;
 
+        public enum CloseMode { Hide, Destroy }
+        /// <summary>What × does: core desk panels hide (the hub brings them back); the rest go away.</summary>
+        public CloseMode closeMode = CloseMode.Destroy;
+        /// <summary>Called before the panel hides or is destroyed by its × button.</summary>
+        public Action<SessionPanel> OnClosed;
+        public PanelChrome Chrome { get; private set; }
+
         public string SessionId { get; private set; } = "";
         public bool Busy { get; private set; }
         /// <summary>When set, streamed replies are spoken as they arrive.</summary>
@@ -31,6 +38,20 @@ namespace OpusSystems.Workshop
         private readonly StringBuilder _transcript = new StringBuilder();
         private readonly StringBuilder _partial = new StringBuilder();
         private const int MaxChars = 1400;
+
+        private void Awake()
+        {
+            Chrome = PanelChrome.Attach(this);
+            Chrome.OnClose = Close;
+        }
+
+        /// <summary>The × button: hide or destroy, per <see cref="closeMode"/>.</summary>
+        public void Close()
+        {
+            OnClosed?.Invoke(this);
+            if (closeMode == CloseMode.Hide) gameObject.SetActive(false);
+            else Destroy(gameObject);
+        }
 
         public void Set(string titleText, string statusText, string bodyText)
         {

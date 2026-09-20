@@ -38,13 +38,10 @@ namespace OpusSystems.Workshop
 
         private void Build()
         {
-            var canvas = _panel.GetComponentInChildren<Canvas>().transform;
-            var font = _panel.title ? _panel.title.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _panel.Set(service, "loading…", "");
             if (_panel.body) _panel.body.fontSize = 19;
-            Ui.Button(canvas, font, "×", 548, -8, 40, 36, new Color(0.45f, 0.25f, 0.25f, 0.9f), () => OnClose?.Invoke(service));
-            // Make room for the close button.
-            if (_panel.status) _panel.status.rectTransform.offsetMax = new Vector2(-70, _panel.status.rectTransform.offsetMax.y);
+            _panel.closeMode = SessionPanel.CloseMode.Destroy;
+            _panel.OnClosed = _ => OnClose?.Invoke(service);
         }
 
         private void Update()

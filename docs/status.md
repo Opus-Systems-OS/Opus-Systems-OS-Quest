@@ -217,9 +217,32 @@ address (the raw-TCP audio worked, the JSON and artwork didn't);
   each with its own ×. Tools `open_panel` / `close_panel` do the same by
   voice. Verified on device: "it all works".
 
+## Window management (2026-09-20) — done
+
+Force-pull is gone. Every panel gets a frame at runtime (`PanelChrome`,
+from `SessionPanel.Awake`): a title bar whose background is its own
+`RayInteractable` (PlaneSurface clipped to the bar, 5 mm proud of the
+canvas so the ray prefers it over content), a ⌖ face-me button and a ×.
+`PanelMover` reads the selecting `RayInteractor` (matched by
+`PointerEvent.Identifier`) and moves the panel Quest-home style: it rides
+the ray; hand travel along the ray changes the distance ×4 (0.3–5 m); the
+panel yaws to face the head; smoothed. `PanelAnchor` pins on the mover's
+release. × hides a desk panel (Jarvis, fleet, calculator, music, Opus —
+the hub's Desk row or `open_panel` brings it back in front of you) and
+destroys a transient one (service, print, session). "Reset room" (hub
+button / `reset_room`) forgets anchors and re-lays the desk. The prefab
+lost `ISDK_DistanceHandGrabInteraction` and its `Grabbable` (`Finish()`
+strips them); canvas `dynamicPixelsPerUnit` 4. Verified: "the overhaul
+went perfectly".
+
+Noted: the Interaction SDK's pointer `Pose` on a ray is the hit point, not
+the ray, hence reading the interactor; the hands carry no direct
+`HandGrabInteractor`, so movement is ray-only (works at any distance).
+
 ## Next
 
-Nothing staged. The workshop is the desk now: Jarvis, music with a real
+Standalone: pairing from the Mac (no adb), a signed release build with an
+icon, Mac-off behaviour. The workshop is the desk now: Jarvis, music with a real
 player, a calculator, the whole stack's status, and prints on a stand.
 Ideas: a "start a session" agent menu on the fleet header; the
 passthrough camera when Meta exposes it; a fine-grained GitHub token in

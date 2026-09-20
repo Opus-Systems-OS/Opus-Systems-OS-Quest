@@ -138,7 +138,7 @@ namespace OpusSystems.Workshop
         private const string SessionPref = "opus.jarvis.session";
         private const string ToolsPref = "opus.jarvis.tools";
         /// <summary>Bump when the tool set changes: tools are fixed at session create.</summary>
-        private const string ToolsVersion = "ops-1";
+        private const string ToolsVersion = "desk-1";
         private const int ReuseCostLimitCents = 30;
 
         /// <summary>Tools the Mac answers (its Music app), declared here so Jarvis has them in the room.</summary>
@@ -167,8 +167,13 @@ namespace OpusSystems.Workshop
             new CustomTool
             {
                 Name = "open_panel",
-                Description = "Open a status panel for one layer of the Opus stack in the room: github, uptimerobot, droplet, docker, tailscale or cloudflare. Returns that layer's current state and headline.",
-                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""service"":{""type"":""string"",""enum"":[""github"",""uptimerobot"",""droplet"",""docker"",""tailscale"",""cloudflare""]}},""required"":[""service""]}"),
+                Description = "Open a panel in the room. A layer of the Opus stack — github, uptimerobot, droplet, docker, tailscale, cloudflare — opens its live status panel and returns its state and headline. A desk panel — jarvis, fleet, calculator, music, opus — is brought back if it was closed.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""service"":{""type"":""string"",""enum"":[""github"",""uptimerobot"",""droplet"",""docker"",""tailscale"",""cloudflare"",""jarvis"",""fleet"",""calculator"",""music"",""opus""]}},""required"":[""service""]}"),
+            },
+            new CustomTool
+            {
+                Name = "reset_room",
+                Description = "Put every panel back in its default place around the user, forget saved positions, and close the transient ones.",
             },
             new CustomTool
             {
@@ -207,7 +212,7 @@ namespace OpusSystems.Workshop
         /// </summary>
         private async Task BootJarvisAsync(string say)
         {
-            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, open a status panel for any layer of the Opus stack with open_panel (github, uptimerobot, droplet, docker, tailscale, cloudflare) and close it with close_panel, work sums out on the calculator panel with calculate (use it for any arithmetic rather than doing it in your head), and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
+            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, open a status panel for any layer of the Opus stack with open_panel (github, uptimerobot, droplet, docker, tailscale, cloudflare) or bring back a closed desk panel (jarvis, fleet, calculator, music, opus), close panels with close_panel, put the room back in order with reset_room, work sums out on the calculator panel with calculate (use it for any arithmetic rather than doing it in your head), and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
             var saved = PlayerPrefs.GetString(SessionPref, "");
             if (!string.IsNullOrEmpty(saved) && PlayerPrefs.GetString(ToolsPref, "") == ToolsVersion && string.IsNullOrEmpty(say))
             {
@@ -247,7 +252,13 @@ namespace OpusSystems.Workshop
                         ? $"No models on the headset. Push .stl/.glb files to {ModelLibrary.Folder}."
                         : string.Join("\n", files);
                 case "open_panel":
-                    return await OpenOpsAsync(input.Value<string>("service") ?? "");
+                    var what = (input.Value<string>("service") ?? "").Trim().ToLowerInvariant();
+                    var deskKey = what switch { "jarvis" => "jarvis", "fleet" => "fleet", "calculator" => "calc", "calc" => "calc", "music" => "speaker", "opus" => "hub", "hub" => "hub", _ => null };
+                    if (deskKey != null) return ShowCore(deskKey) ? $"{what} panel is back" : $"there is no {what} panel";
+                    return await OpenOpsAsync(what);
+                case "reset_room":
+                    ResetRoom();
+                    return "the room is reset";
                 case "close_panel":
                     return CloseOps(input.Value<string>("service") ?? "");
                 case "calculate":
@@ -263,6 +274,7 @@ namespace OpusSystems.Workshop
                         stand.transform.localScale *= 0.5f;
                         _print = stand.gameObject.AddComponent<PrintPreview>();
                         _print.stand = stand;
+                        stand.OnClosed = _ => _print = null;
                     }
                     await _print.LoadAsync(source);
                     return "Showing " + _print.Summary;
@@ -357,22 +369,79 @@ namespace OpusSystems.Workshop
             if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
             _origin = new Pose(_head.position, Quaternion.LookRotation(fwd.normalized, Vector3.up));
             _laidOut = true;
-            if (panel)
-            {
-                var p = Slot(0, up: false);
-                panel.transform.SetPositionAndRotation(p.position, p.rotation);
-                _ = Anchor(panel, "jarvis");
-            }
-            if (_header)
-            {
-                var h = Slot(0, up: true);
-                _header.transform.SetPositionAndRotation(h.position, h.rotation);
-                _ = Anchor(_header, "fleet");
-            }
+            LayoutDesk(restore: true);
+            return true;
+        }
+
+        /// <summary>
+        /// Every core panel to its default spot around the origin. With
+        /// `restore`, a remembered anchor wins; without, the defaults are
+        /// pinned fresh (a room reset).
+        /// </summary>
+        private void LayoutDesk(bool restore)
+        {
+            if (panel) Core(panel, "jarvis", Slot(0, up: false), restore);
+            if (_header) Core(_header, "fleet", Slot(0, up: true), restore);
             SpawnSpeaker();
             EnsureCalculator();
             SpawnHub();
+            if (_speakerPanel) Core(_speakerPanel, "speaker", DeskPose(0.75f, -0.35f, 1.1f), restore);
+            if (_calculator) Core(_calculator.GetComponent<SessionPanel>(), "calc", DeskPose(-0.95f, -0.15f, 1.05f), restore);
+            if (_hub) Core(_hub.GetComponent<SessionPanel>(), "hub", DeskPose(-0.75f, 0.45f, 1.25f), restore);
+        }
+
+        /// <summary>A desk spot relative to the origin, turned to face it.</summary>
+        private Pose DeskPose(float right, float up, float forward)
+        {
+            var pos = _origin.position + _origin.rotation * new Vector3(right, up, forward);
+            return new Pose(pos, Quaternion.LookRotation(_origin.rotation * new Vector3(right, 0, forward), Vector3.up));
+        }
+
+        private readonly Dictionary<string, SessionPanel> _core = new Dictionary<string, SessionPanel>();
+
+        /// <summary>Register a core panel: hides on ×, comes back from the hub, remembers its place.</summary>
+        private void Core(SessionPanel p, string key, Pose pose, bool restore)
+        {
+            _core[key] = p;
+            p.closeMode = SessionPanel.CloseMode.Hide;
+            p.gameObject.SetActive(true);
+            p.transform.SetPositionAndRotation(pose.position, pose.rotation);
+            var a = p.GetComponent<PanelAnchor>();
+            if (a == null) { a = p.gameObject.AddComponent<PanelAnchor>(); a.key = key; }
+            _ = restore ? RestoreOrPin(a) : a.PinAsync();
+        }
+
+        private static async Task RestoreOrPin(PanelAnchor a)
+        {
+            if (!await a.RestoreAsync()) await a.PinAsync();
+        }
+
+        /// <summary>Bring a hidden core panel back (the hub's Desk row, or "open the calculator").</summary>
+        public bool ShowCore(string key)
+        {
+            if (!_core.TryGetValue(key, out var p) || !p) return false;
+            if (p.gameObject.activeSelf) return true; // already out; leave it where it is
+            p.gameObject.SetActive(true);
+            // It was closed: put it back in front of you rather than wherever it was.
+            var mover = p.GetComponent<PanelMover>();
+            var pose = DeskPose(0, -0.1f, 1.1f);
+            p.transform.SetPositionAndRotation(pose.position, mover ? mover.Facing(pose.position) : pose.rotation);
+            var a = p.GetComponent<PanelAnchor>();
+            if (a) _ = a.PinAsync();
             return true;
+        }
+
+        /// <summary>Everything back to its default spot, anchors forgotten, transient panels gone.</summary>
+        public void ResetRoom()
+        {
+            foreach (var key in new[] { "jarvis", "fleet", "speaker", "calc", "hub" }) PanelAnchor.Forget(key);
+            foreach (var kv in _opsPanels.ToList()) { PanelAnchor.Forget("ops-" + kv.Key); if (kv.Value) Destroy(kv.Value.gameObject); }
+            _opsPanels.Clear();
+            if (_print) { Destroy(_print.gameObject); _print = null; }
+            var fwd = Vector3.ProjectOnPlane(_head.forward, Vector3.up);
+            if (fwd.sqrMagnitude < 0.01f) fwd = _origin.rotation * Vector3.forward;
+            _origin = new Pose(_head.position, Quaternion.LookRotation(fwd.normalized, Vector3.up));
+            LayoutDesk(restore: false);
         }
 
         // ---- the Opus launcher and its service panels ------------------------
@@ -390,7 +459,8 @@ namespace OpusSystems.Workshop
             var stand = Spawn("Opus Systems", pose);
             _hub = OpsHubPanel.Attach(stand, _api);
             _hub.OnOpen = id => _ = OpenOpsAsync(id);
-            _ = Anchor(stand, "hub");
+            _hub.OnDesk = key => ShowCore(key);
+            _hub.OnReset = ResetRoom;
         }
 
         private static readonly string[] OpsIds = { "github", "uptimerobot", "droplet", "docker", "tailscale", "cloudflare" };
@@ -410,6 +480,7 @@ namespace OpusSystems.Workshop
                 var ops = OpsPanel.Attach(p, _api, service);
                 ops.OnClose = id => CloseOps(id);
                 _ = Anchor(p, "ops-" + service);
+                p.OnClosed = _ => { PanelAnchor.Forget("ops-" + service); _opsPanels.Remove(service); };
             }
             var s = await _api.OpsAsync(service);
             return $"{s.Value<string>("name")}: {s.Value<string>("state")} — {s.Value<string>("headline")}";
@@ -441,7 +512,6 @@ namespace OpusSystems.Workshop
             var stand = Spawn("calculator", pose);
             stand.transform.localScale *= 0.8f;
             _calculator = CalculatorPanel.Attach(stand);
-            _ = Anchor(stand, "calc");
         }
 
         // ---- the Mac's music, from a speaker you can move ------------------
@@ -465,7 +535,6 @@ namespace OpusSystems.Workshop
             if (parts.Length > 1 && int.TryParse(parts[1], out var port)) _speaker.port = port;
             // The media player on the same panel: artwork, track, transport.
             MediaPanel.Attach(_speakerPanel, parts[0]);
-            _ = Anchor(_speakerPanel, "speaker");
         }
 
         private float _nextSpeakerUi;

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Oculus.Interaction;
 using UnityEngine;
 
 namespace OpusSystems.Workshop
@@ -21,35 +20,44 @@ namespace OpusSystems.Workshop
         public string key = "";
 
         private OVRSpatialAnchor _anchor;
-        private PointableElement _pointable;
-        private int _holds;
+        private PanelMover _mover;
         private bool _saving;
 
         private static string Pref(string key) => "opus.anchor." + key;
 
         private void Start()
         {
-            _pointable = GetComponentInChildren<PointableElement>();
-            if (_pointable != null) _pointable.WhenPointerEventRaised += OnPointer;
+            _mover = GetComponent<PanelMover>();
+            if (_mover != null)
+            {
+                _mover.Grabbed += Release;
+                _mover.Released += OnReleased;
+            }
         }
 
         private void OnDestroy()
         {
-            if (_pointable != null) _pointable.WhenPointerEventRaised -= OnPointer;
+            if (_mover != null)
+            {
+                _mover.Grabbed -= Release;
+                _mover.Released -= OnReleased;
+            }
         }
 
-        private void OnPointer(PointerEvent e)
+        private void OnReleased() => _ = PinAfterSettleAsync();
+
+        /// <summary>The mover eases onto its final pose; pin once it has stopped.</summary>
+        private async Task PinAfterSettleAsync()
         {
-            switch (e.Type)
-            {
-                case PointerEventType.Select:
-                    if (_holds++ == 0) Release();
-                    break;
-                case PointerEventType.Unselect:
-                case PointerEventType.Cancel:
-                    if (_holds > 0 && --_holds == 0) _ = PinAsync();
-                    break;
-            }
+            await Task.Delay(350);
+            if (!this || (_mover != null && _mover.IsGrabbed)) return;
+            await PinAsync();
+        }
+
+        /// <summary>Drop the saved spot (a room reset).</summary>
+        public static void Forget(string key)
+        {
+            PlayerPrefs.DeleteKey(Pref(key));
         }
 
         /// <summary>Let go of the room so the hand can move the panel.</summary>

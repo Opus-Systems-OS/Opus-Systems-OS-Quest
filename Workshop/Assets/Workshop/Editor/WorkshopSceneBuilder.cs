@@ -130,6 +130,15 @@ namespace OpusSystems.Workshop.Editor
             if (space == null) space = new GameObject("FleetSpace").AddComponent<FleetSpace>();
             space.panel = panel;
             panel.Set("jarvis", "idle", "Pinch to grab this panel and put it where you like.");
+            // Movement is PanelMover's now: the force-pull interactable and
+            // the Grabbable it drove come off the panel (the hands keep their
+            // interactors). Idempotent.
+            foreach (var t in panel.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("ISDK_DistanceHandGrabInteraction")).ToList())
+                Object.DestroyImmediate(t.gameObject);
+            foreach (var c in panel.GetComponents<Component>().Where(c => c != null && c.GetType().FullName == "Oculus.Interaction.Grabbable").ToList())
+                Object.DestroyImmediate(c);
+            var scaler = panel.GetComponentInChildren<CanvasScaler>(true);
+            if (scaler) scaler.dynamicPixelsPerUnit = 4;
             // The Grabbable Item block leaves its demo cube at the origin
             // once its components have been copied onto the panel.
             foreach (var stray in scene.GetRootGameObjects().Where(g => g.name == "[BuildingBlock] Grabbable Item" && g.GetComponent<SessionPanel>() == null).ToList())

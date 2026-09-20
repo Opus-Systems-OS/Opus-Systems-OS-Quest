@@ -17,6 +17,9 @@ namespace OpusSystems.Workshop
     public sealed class OpsHubPanel : MonoBehaviour
     {
         public Action<string> OnOpen;
+        /// <summary>The Desk row: bring a hidden core panel back, by key (jarvis, fleet, calc, speaker).</summary>
+        public Action<string> OnDesk;
+        public Action OnReset;
 
         private SessionPanel _panel;
         private OpusClient _api;
@@ -42,8 +45,18 @@ namespace OpusSystems.Workshop
             _font = _panel.title ? _panel.title.font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var rows = new GameObject("Rows", typeof(RectTransform));
             rows.transform.SetParent(canvas, false);
-            Ui.Place(rows.GetComponent<RectTransform>(), 20, -66, 560, 320);
+            Ui.Place(rows.GetComponent<RectTransform>(), 20, -56, 560, 270);
             _rows = rows.transform;
+
+            // The desk: closed core panels come back from here; the room resets from here.
+            var y = -334f;
+            var x = 20f;
+            foreach (var (label, key) in new[] { ("Jarvis", "jarvis"), ("Fleet", "fleet"), ("Calc", "calc"), ("Music", "speaker") })
+            {
+                Ui.Button(canvas, _font, label, x, y, 100, 54, new Color(0.16f, 0.26f, 0.36f, 0.95f), () => OnDesk?.Invoke(key));
+                x += 108;
+            }
+            Ui.Button(canvas, _font, "Reset room", x + 8, y, 120, 54, new Color(0.45f, 0.3f, 0.2f, 0.95f), () => OnReset?.Invoke());
         }
 
         private void Update()
@@ -89,7 +102,7 @@ namespace OpusSystems.Workshop
 
         private (Image, Text, Text) Row(string id, int index)
         {
-            const float h = 50, gap = 4;
+            const float h = 42, gap = 3;
             var y = -index * (h + gap);
             var go = new GameObject("Row " + id, typeof(Image), typeof(Button));
             go.transform.SetParent(_rows, false);
@@ -104,10 +117,10 @@ namespace OpusSystems.Workshop
 
             var dotGo = new GameObject("Dot", typeof(Image));
             dotGo.transform.SetParent(go.transform, false);
-            Ui.Place(dotGo.GetComponent<RectTransform>(), 12, -17, 16, 16);
-            var name = Ui.Label(go.transform, _font, 22, FontStyle.Bold, 40, -4, 150, 42, new Color(0.95f, 0.97f, 1f));
+            Ui.Place(dotGo.GetComponent<RectTransform>(), 12, -13, 16, 16);
+            var name = Ui.Label(go.transform, _font, 21, FontStyle.Bold, 40, -2, 150, 38, new Color(0.95f, 0.97f, 1f));
             name.alignment = TextAnchor.MiddleLeft;
-            var line = Ui.Label(go.transform, _font, 17, FontStyle.Normal, 190, -4, 360, 42, new Color(0.75f, 0.82f, 0.9f));
+            var line = Ui.Label(go.transform, _font, 16, FontStyle.Normal, 190, -2, 360, 38, new Color(0.75f, 0.82f, 0.9f));
             line.alignment = TextAnchor.MiddleLeft;
             return (dotGo.GetComponent<Image>(), name, line);
         }
