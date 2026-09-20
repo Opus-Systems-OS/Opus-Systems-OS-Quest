@@ -138,7 +138,7 @@ namespace OpusSystems.Workshop
         private const string SessionPref = "opus.jarvis.session";
         private const string ToolsPref = "opus.jarvis.tools";
         /// <summary>Bump when the tool set changes: tools are fixed at session create.</summary>
-        private const string ToolsVersion = "calc-1";
+        private const string ToolsVersion = "ops-1";
         private const int ReuseCostLimitCents = 30;
 
         /// <summary>Tools the Mac answers (its Music app), declared here so Jarvis has them in the room.</summary>
@@ -163,6 +163,18 @@ namespace OpusSystems.Workshop
                 Name = "calculate",
                 Description = "Work out an arithmetic expression exactly and show it on the calculator panel in the room. Supports + - * / ^, parentheses, sqrt(), and a postfix percent (17% of 340 → \"17% * 340\"). Returns \"expression = result\".",
                 InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""expression"":{""type"":""string""}},""required"":[""expression""]}"),
+            },
+            new CustomTool
+            {
+                Name = "open_panel",
+                Description = "Open a status panel for one layer of the Opus stack in the room: github, uptimerobot, droplet, docker, tailscale or cloudflare. Returns that layer's current state and headline.",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""service"":{""type"":""string"",""enum"":[""github"",""uptimerobot"",""droplet"",""docker"",""tailscale"",""cloudflare""]}},""required"":[""service""]}"),
+            },
+            new CustomTool
+            {
+                Name = "close_panel",
+                Description = "Close an open status panel: one service name, or \"all\".",
+                InputSchema = JObject.Parse(@"{""type"":""object"",""properties"":{""service"":{""type"":""string""}},""required"":[""service""]}"),
             },
             new CustomTool
             {
@@ -195,7 +207,7 @@ namespace OpusSystems.Workshop
         /// </summary>
         private async Task BootJarvisAsync(string say)
         {
-            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, work sums out on the calculator panel with calculate (use it for any arithmetic rather than doing it in your head), and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
+            var suffix = "You are speaking through a Meta Quest 3 headset app called the Workshop: your replies appear on a floating panel in the user's real room, and other panels around it show the fleet's other sessions. You can show 3D prints on a stand with show_model, open a status panel for any layer of the Opus stack with open_panel (github, uptimerobot, droplet, docker, tailscale, cloudflare) and close it with close_panel, work sums out on the calculator panel with calculate (use it for any arithmetic rather than doing it in your head), and play the user's Apple Music through the Mac in the room with play_music, queue_music, list_playlists and music_control. Search the web when an answer needs current facts, and say when you did. Plain sentences, no markdown, one to three sentences.";
             var saved = PlayerPrefs.GetString(SessionPref, "");
             if (!string.IsNullOrEmpty(saved) && PlayerPrefs.GetString(ToolsPref, "") == ToolsVersion && string.IsNullOrEmpty(say))
             {
@@ -234,6 +246,10 @@ namespace OpusSystems.Workshop
                     return files.Length == 0
                         ? $"No models on the headset. Push .stl/.glb files to {ModelLibrary.Folder}."
                         : string.Join("\n", files);
+                case "open_panel":
+                    return await OpenOpsAsync(input.Value<string>("service") ?? "");
+                case "close_panel":
+                    return CloseOps(input.Value<string>("service") ?? "");
                 case "calculate":
                     EnsureCalculator();
                     return _calculator.Evaluate(input.Value<string>("expression") ?? "");
@@ -355,7 +371,61 @@ namespace OpusSystems.Workshop
             }
             SpawnSpeaker();
             EnsureCalculator();
+            SpawnHub();
             return true;
+        }
+
+        // ---- the Opus launcher and its service panels ------------------------
+
+        private OpsHubPanel _hub;
+        private readonly Dictionary<string, SessionPanel> _opsPanels = new Dictionary<string, SessionPanel>();
+
+        private void SpawnHub()
+        {
+            if (_hub) return;
+            // Above the ring, left of the fleet header.
+            var pose = new Pose(
+                _origin.position + _origin.rotation * new Vector3(-0.75f, 0.45f, 1.25f),
+                Quaternion.LookRotation(_origin.rotation * new Vector3(-0.75f, 0, 1.25f), Vector3.up));
+            var stand = Spawn("Opus Systems", pose);
+            _hub = OpsHubPanel.Attach(stand, _api);
+            _hub.OnOpen = id => _ = OpenOpsAsync(id);
+            _ = Anchor(stand, "hub");
+        }
+
+        private static readonly string[] OpsIds = { "github", "uptimerobot", "droplet", "docker", "tailscale", "cloudflare" };
+
+        private async Task<string> OpenOpsAsync(string service)
+        {
+            service = service.Trim().ToLowerInvariant();
+            if (System.Array.IndexOf(OpsIds, service) < 0) throw new System.Exception($"no layer called '{service}'; one of {string.Join(", ", OpsIds)}");
+            if (!_opsPanels.TryGetValue(service, out var p) || !p)
+            {
+                // Open panels line up on a second ring above the sessions, outward from the hub.
+                var n = _opsPanels.Count(kv => kv.Value);
+                var slot = 1 + n;
+                var pose = Slot(slot, up: true);
+                p = Spawn(service, pose);
+                _opsPanels[service] = p;
+                var ops = OpsPanel.Attach(p, _api, service);
+                ops.OnClose = id => CloseOps(id);
+                _ = Anchor(p, "ops-" + service);
+            }
+            var s = await _api.OpsAsync(service);
+            return $"{s.Value<string>("name")}: {s.Value<string>("state")} — {s.Value<string>("headline")}";
+        }
+
+        private string CloseOps(string service)
+        {
+            service = service.Trim().ToLowerInvariant();
+            var ids = service == "all" ? _opsPanels.Keys.ToList() : new List<string> { service };
+            var closed = 0;
+            foreach (var id in ids)
+            {
+                if (_opsPanels.TryGetValue(id, out var p) && p) { Destroy(p.gameObject); closed++; }
+                _opsPanels.Remove(id);
+            }
+            return closed == 0 ? $"no {service} panel is open" : $"closed {closed}";
         }
 
         // ---- the calculator, a desk tool that is always there ----------------

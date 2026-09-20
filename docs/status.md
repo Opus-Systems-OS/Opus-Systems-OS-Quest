@@ -208,9 +208,23 @@ address (the raw-TCP audio worked, the JSON and artwork didn't);
   system suffix tells him to use it for any arithmetic. Verified on
   device by keypad and by voice.
 
+- **The Opus launcher — done.** `OpsHubPanel` (up-left of the fleet
+  header, anchored `hub`): one row per layer from `GET /v1/ops` — state
+  dot, name, headline — refreshed every 30 s; a row is a button that
+  opens the layer's `OpsPanel` on the upper ring (`GET /v1/ops/{service}`
+  rendered per service: repos + open PRs + CI + notifications; monitors;
+  droplet load and memory; containers; tailnet devices; DNS records),
+  each with its own ×. Tools `open_panel` / `close_panel` do the same by
+  voice. Verified on device: "it all works".
+
 ## Next
 
-The Opus launcher and service panels on `/v1/ops`. Ideas, in rough order of value: more room tools (start a
+Nothing staged. The workshop is the desk now: Jarvis, music with a real
+player, a calculator, the whole stack's status, and prints on a stand.
+Ideas: a "start a session" agent menu on the fleet header; the
+passthrough camera when Meta exposes it; a fine-grained GitHub token in
+place of the classic one; Tailscale on the Mac so the speaker address
+survives a DHCP change. Ideas, in rough order of value: more room tools (start a
 fleet session by voice with an agent menu; "look at this" with the
 passthrough camera when Meta exposes it); the Duck-style dimensions check
 against a real print bed; a "print this" hand-off to the slicer on the

@@ -49,8 +49,9 @@ docs/status.md                     resume here
 
 ## Build order (hard stage boundaries)
 
-Stages 1–6 are done on the device (2026-09-19); progress and the gotchas
-each one hit are in `docs/status.md`.
+Stages 1–6 are done on the device (2026-09-19), and the 2026-09-20 upgrade
+(music with a player, web search, calculator, the Opus launcher) too;
+progress and the gotchas each one hit are in `docs/status.md`.
 
 1. **Room + one panel** — passthrough, hands, one grabbable panel; APK on
    the headset. Exit: grab and place the panel in your real room.
